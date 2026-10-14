@@ -40,6 +40,11 @@ export function setupFetchMock() {
     const urlStr = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     const method = (init?.method || 'GET').toUpperCase();
 
+    // Never intercept the app's own static files (relevant when served under a sub-path)
+    if (urlStr.includes(`${import.meta.env.BASE_URL}assets/`)) {
+      return originalFetch(input, init);
+    }
+
     // Only intercept API calls
     if (!urlStr.includes('/api/') && !urlStr.includes('/corporate/') && !urlStr.includes('/v1/')) {
       return originalFetch(input, init);

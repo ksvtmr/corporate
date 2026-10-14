@@ -83,7 +83,7 @@ export const AccessDenied: React.FC<{ currentRole?: string; allowedRoles?: strin
           <Button
             variant="primary"
             onClick={() => {
-              window.location.href = '/corporate/dashboard';
+              window.location.href = `${import.meta.env.BASE_URL}corporate/dashboard`;
             }}
           >
             <LayoutDashboard className="w-4 h-4 mr-2" />

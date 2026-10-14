@@ -263,7 +263,7 @@ class MockStore {
     this.db.members.push(newMember);
 
     const inviteToken = 'inv-' + Math.random().toString(36).substring(2, 12);
-    const inviteLink = `${window.location.origin}/invite?token=${inviteToken}`;
+    const inviteLink = `${window.location.origin}${import.meta.env.BASE_URL}invite?token=${inviteToken}`;
 
     this.db.invitations.push({
       id: inviteToken,

@@ -148,7 +148,7 @@ class ApiClient {
         localStorage.removeItem('iclever_active_role');
         if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
           // Safe navigation without exposing open redirect parameters
-          window.location.href = '/login';
+          window.location.href = `${import.meta.env.BASE_URL}login`;
         }
       }
 
