@@ -108,3 +108,19 @@ npm run dev
 * `npm run build` — проверка типов TypeScript и сборка независимых чанков в директорию `dist/`
 * `npm run preview` — предпросмотр production-сборки
 * `npm run test:e2e` — запуск сквозного E2E тестирования
+
+---
+
+## 🐳 Docker
+
+The production image is a static build served by nginx (non-root, port `8080`). On every push to `main`, GitHub Actions builds it and publishes it to `ghcr.io/ksvtmr/corporate`.
+
+```bash
+# Run the published image
+docker run -d -p 8080:8080 ghcr.io/ksvtmr/corporate:latest
+
+# Or build and run locally
+docker compose up --build
+```
+
+Open **http://localhost:8080**. `VITE_*` variables are baked in at build time, so to point at a real backend, build with `--build-arg VITE_USE_MOCK=false --build-arg VITE_API_BASE_URL=/api`.
