@@ -243,7 +243,7 @@ export const AssessmentsPage: React.FC = () => {
                 className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <select aria-label={t('common.filters.type')} value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700">
                 <option value="all">{t('assessments.allTypes')}</option>
                 {ALL_TYPES.map((x) => (

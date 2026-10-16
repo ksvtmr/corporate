@@ -16,15 +16,18 @@ interface TabsProps {
 
 export const Tabs: React.FC<TabsProps> = ({ tabs, activeTab, onChange, className = '' }) => {
   return (
-    <div className={`border-b border-slate-200 ${className}`}>
-      <nav className="-mb-px flex space-x-6">
+    <div className={`border-b border-slate-200 overflow-x-auto ${className}`}>
+      <nav className="-mb-px flex space-x-6" role="tablist">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
               onClick={() => onChange(tab.id)}
-              className={`py-3 px-1 inline-flex items-center text-sm font-medium border-b-2 transition-colors ${
+              className={`py-3 px-1 whitespace-nowrap shrink-0 inline-flex items-center text-sm font-medium border-b-2 transition-colors ${
                 isActive
                   ? 'border-indigo-600 text-indigo-600 font-semibold'
                   : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'

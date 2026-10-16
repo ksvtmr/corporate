@@ -93,7 +93,7 @@ export const AiChatPage: React.FC = () => {
             <p className="text-[11px] text-slate-500">{t('aiChat.subtitle')}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <label htmlFor="ai-scope" className="text-slate-500">
             {t('aiChat.scope.label')}
           </label>

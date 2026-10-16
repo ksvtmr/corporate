@@ -68,3 +68,13 @@ describe('flashcard scheduling', () => {
     expect(again.repetitions).toBe(2);
   });
 });
+
+describe('post-login redirect', () => {
+  it('accepts only internal application paths', async () => {
+    const { safeRedirect } = await import('@/pages/LoginPage');
+    expect(safeRedirect('/corporate/employees?status=invited')).toBe('/corporate/employees?status=invited');
+    for (const bad of ['//evil.com', '/corporate/\\evil.com', '/corporate//evil.com', 'https://evil.com', '/login', '/corporate/x\\\\y', 42, undefined]) {
+      expect(safeRedirect(bad)).toBe('/corporate/dashboard');
+    }
+  });
+});

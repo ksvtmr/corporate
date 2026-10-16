@@ -281,7 +281,7 @@ const ManagerDashboard: React.FC = () => {
               className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <select aria-label={t('common.filters.status')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-700">
               <option value="all">{t('common.filters.allStatuses')}</option>
               {(['assigned', 'in_progress', 'overdue', 'completed'] as const).map((s) => (
