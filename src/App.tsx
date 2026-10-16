@@ -66,7 +66,7 @@ export const App: React.FC = () => (
   <I18nProvider>
     <ToastProvider>
       <AuthProvider>
-        <BrowserRouter basename={import.meta.env.BASE_URL}>
+        <BrowserRouter basename={import.meta.env.BASE_URL} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />

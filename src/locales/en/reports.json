@@ -1,0 +1,73 @@
+{
+  "title": "Corporate report exports",
+  "subtitle": "Summary exports from your organization's current data in CSV and PDF",
+  "step1": "1. Report type",
+  "step2": "2. File format",
+  "csvHint": "CSV opens in Excel and Google Sheets; cells are protected against formula injection.",
+  "pdfHint": "A print-ready view opens — choose “Save as PDF” in the print dialog.",
+  "xlsxUnavailable": "XLSX is produced by the server-side reporting service and is unavailable in demo mode.",
+  "generating": "Generating the report and computing aggregates…",
+  "generate": "Generate report",
+  "history": "Report history",
+  "searchPlaceholder": "Search by name or format…",
+  "emptyHistory": "No reports generated yet",
+  "historyNote": "Sample reports are recalculated from current data when downloaded.",
+  "openPdf": "Open PDF",
+  "sizeKb": "{{size}} KB",
+  "status": {
+    "ready": "Ready",
+    "failed": "Failed"
+  },
+  "types": {
+    "department_progress": {
+      "title": "Department summary",
+      "desc": "Headcount, assignments, overdue items and average progress per department"
+    },
+    "overdue_registry": {
+      "title": "Overdue deadlines register",
+      "desc": "Employees who missed program or test deadlines"
+    },
+    "competency_matrix": {
+      "title": "Employee learning snapshot",
+      "desc": "Completed and active programs and average progress per employee"
+    },
+    "integrity_log": {
+      "title": "Integrity event log",
+      "desc": "Tab switches, pasted text and reviewer decisions"
+    },
+    "employee_registry": {
+      "title": "Employee register & statuses",
+      "desc": "Full staff list with roles and invitation statuses"
+    }
+  },
+  "columns": {
+    "report": "Report",
+    "format": "Format",
+    "size": "Size",
+    "created": "Created",
+    "status": "Status",
+    "download": "Download",
+    "department": "Department",
+    "headcount": "Headcount",
+    "assignments": "Assignments",
+    "completed": "Completed",
+    "overdue": "Overdue",
+    "avgProgress": "Average progress",
+    "employee": "Employee",
+    "program": "Program",
+    "dueDate": "Due date",
+    "progress": "Progress",
+    "jobTitle": "Job title",
+    "inProgress": "In progress",
+    "test": "Test",
+    "event": "Event",
+    "severity": "Severity",
+    "date": "Date",
+    "role": "Role"
+  },
+  "toast": {
+    "ready": "“{{report}}” is ready — download it from the history below",
+    "downloaded": "{{file}} downloaded",
+    "popupBlocked": "The browser blocked the print window. Allow pop-ups for this site."
+  }
+}

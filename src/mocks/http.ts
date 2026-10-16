@@ -158,13 +158,7 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
-/** Strips characters that turn CSV cells into spreadsheet formulas (CWE-1236). */
-export function sanitizeCsvCell(value: unknown): string {
-  if (value === undefined || value === null) return '""';
-  let s = String(value);
-  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
-  return `"${s.replace(/"/g, '""')}"`;
-}
+export { sanitizeCsvCell } from '@/kit/export/csv';
 
 /** Removes formula prefixes from imported values (repeatedly, e.g. "=+cmd"). */
 export function stripFormula(value: string): string {

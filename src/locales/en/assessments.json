@@ -1,0 +1,134 @@
+{
+  "title": "Question bank & test builder",
+  "subtitle": "8 question types, links to policies, timers, shuffling and integrity monitoring",
+  "searchPlaceholder": "Search by wording or topic…",
+  "allTypes": "All question types",
+  "emptyBank": "The question bank is empty",
+  "emptyTests": "No tests yet",
+  "tabs": {
+    "bank": "Question bank",
+    "tests": "Tests & assessments"
+  },
+  "types": {
+    "single_choice": "Single choice",
+    "multiple_choice": "Multiple choice",
+    "true_false": "True / false",
+    "short_answer": "Short answer",
+    "open_answer": "Open answer (AI)",
+    "matching": "Matching",
+    "ordering": "Ordering",
+    "scenario": "Scenario"
+  },
+  "difficulty": {
+    "easy": "Easy",
+    "medium": "Medium",
+    "hard": "Hard"
+  },
+  "sort": {
+    "pointsDesc": "Points: high to low",
+    "pointsAsc": "Points: low to high",
+    "difficulty": "By difficulty",
+    "topic": "By topic"
+  },
+  "actions": {
+    "generate": "Generate questions with AI",
+    "createQuestion": "Create question",
+    "createTest": "Build a test",
+    "preview": "Preview",
+    "assign": "Assign test",
+    "duplicate": "Duplicate"
+  },
+  "detail": {
+    "title": "Question details",
+    "options": "Answer options:",
+    "correct": "Correct answer",
+    "source": "Source in the policy:",
+    "usedIn": "Used in tests: {{tests}}",
+    "copyPrefix": "[Copy] {{text}}"
+  },
+  "delete": {
+    "title": "Delete this question?",
+    "message": "The question will be permanently removed from the bank.",
+    "inUse": {
+      "one": "This question is used in {{count}} test. Remove it from the test first.",
+      "other": "This question is used in {{count}} tests. Remove it from those tests first."
+    }
+  },
+  "preview": {
+    "title": "Preview: {{title}}",
+    "missing": "Question removed from the bank",
+    "openAnswer": "Open answer field"
+  },
+  "question": {
+    "title": "New question",
+    "subtitle": "The question is saved in the current interface language",
+    "text": "Question wording",
+    "type": "Question type",
+    "topic": "Topic / section",
+    "difficulty": "Difficulty",
+    "points": "Points",
+    "options": "Answer options (one per line)",
+    "optionsPlaceholder": "Option 1\nOption 2\nOption 3",
+    "correctOne": "Mark the correct answer",
+    "correctMany": "Mark all correct answers",
+    "manualSource": "Created manually by a trainer",
+    "submit": "Save to bank",
+    "errors": {
+      "text": "Enter the question wording.",
+      "topic": "Enter a topic.",
+      "points": "Points must be a whole number from 1 to 100.",
+      "options": "Add at least two answer options.",
+      "correct": "Mark the correct answer.",
+      "singleCorrect": "Only one correct answer is allowed for this type."
+    }
+  },
+  "test": {
+    "title": "Build a new test",
+    "subtitle": "Pick questions from the bank and set the rules",
+    "name": "Test title",
+    "namePlaceholder": "e.g. Clean Architecture assessment",
+    "description": "Description and purpose",
+    "chooseQuestions": "Test questions ({{count}} selected)",
+    "time": "Time limit (minutes)",
+    "passingLabel": "Passing score (%)",
+    "shuffleLabel": "Shuffle questions and options",
+    "integrityLabel": "Integrity monitoring (tab switches, pasting)",
+    "submit": "Create test",
+    "ready": "Ready to assign",
+    "noQuestions": "No questions",
+    "timer": "Timer:",
+    "passing": "Passing score:",
+    "shuffle": "Shuffle:",
+    "integrity": "Integrity:",
+    "errors": {
+      "title": "Enter a test title.",
+      "questions": "Select at least one question.",
+      "time": "The time limit must be 5–180 minutes.",
+      "passing": "The passing score must be 50–100."
+    }
+  },
+  "ai": {
+    "title": "Generate questions with AI",
+    "subtitle": "Questions are generated in the current interface language and need review",
+    "topic": "Topic or policy",
+    "topicPlaceholder": "e.g. microservice architecture patterns",
+    "count": "Number of questions (1–20)",
+    "difficulty": {
+      "easy": "Easy (core concepts)",
+      "medium": "Medium (practical application)",
+      "hard": "Hard (architecture cases)"
+    },
+    "generating": "AI is drafting questions, distractors and grading criteria…",
+    "submit": "Generate questions"
+  },
+  "toast": {
+    "questionCreated": "Question added to the bank",
+    "generated": {
+      "one": "AI added {{count}} question — please review it",
+      "other": "AI added {{count}} questions — please review them"
+    },
+    "testCreated": "Test created",
+    "duplicated": "Question duplicated",
+    "deleted": "Question deleted"
+  }
+}

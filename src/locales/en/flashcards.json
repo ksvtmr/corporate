@@ -1,0 +1,64 @@
+{
+  "title": "Spaced repetition",
+  "subtitle": "Retain policies, terms and standards: cards come back exactly when you need them",
+  "topic": "Topic:",
+  "allTopics": "All topics ({{count}})",
+  "includeNotDue": "Include cards that are not due yet",
+  "empty": "No flashcards yet",
+  "topics": {
+    "go_arch": "Go architecture",
+    "infosec": "Information security",
+    "engineering": "Engineering",
+    "general": "General policies"
+  },
+  "progress": "Card {{current}} of {{total}}",
+  "repetitions": {
+    "one": "{{count}} repetition",
+    "other": "{{count}} repetitions"
+  },
+  "flipHint": "Click to flip",
+  "showAnswer": "Show answer",
+  "showQuestion": "Show question",
+  "answerLabel": "Answer",
+  "questionLabel": "Question",
+  "nextReview": "Review: {{date}}",
+  "due": {
+    "today": "today",
+    "tomorrow": "tomorrow"
+  },
+  "actions": {
+    "shuffle": "Shuffle",
+    "add": "Add card",
+    "repeat": "Repeat again",
+    "know": "I know it",
+    "delete": "Delete card"
+  },
+  "done": {
+    "title": "Session complete!",
+    "text": {
+      "one": "You reviewed {{count}} card. The next reviews are scheduled automatically.",
+      "other": "You reviewed {{count}} cards. The next reviews are scheduled automatically."
+    },
+    "nothingDue": "You're all caught up",
+    "nothingDueText": "No cards are due. You can study ahead if you like.",
+    "studyAhead": "Study ahead",
+    "again": "Go again"
+  },
+  "delete": {
+    "title": "Delete this card?",
+    "message": "The card and its review history will be removed."
+  },
+  "form": {
+    "title": "New flashcard",
+    "subtitle": "A term or rule for spaced repetition",
+    "topic": "Topic",
+    "front": "Question or term (front)",
+    "frontPlaceholder": "e.g. What is the Outbox pattern?",
+    "back": "Answer or definition (back)",
+    "backPlaceholder": "e.g. a pattern for reliable message delivery…",
+    "submit": "Create card"
+  },
+  "toast": {
+    "created": "Card added to the deck"
+  }
+}

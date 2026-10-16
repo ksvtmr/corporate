@@ -1,0 +1,45 @@
+{
+  "title": "Learning HR analytics",
+  "subtitle": "Assignment completion, overdue items and trends by department",
+  "subtitleManager": "Learning indicators for your team",
+  "department": "Department",
+  "wholeOrg": "Whole organization",
+  "period": "Period",
+  "ranges": {
+    "7d": "Last 7 days",
+    "30d": "Last 30 days",
+    "90d": "Last 90 days",
+    "all": "All time"
+  },
+  "dataNote": "Headcount comes from the organization directory; completion figures come from demo assignment data.",
+  "noData": "No data for the selected period",
+  "kpi": {
+    "completion": "Assignment completion rate",
+    "completionHint": "{{completed}} of {{total}}",
+    "avgProgress": "Average progress",
+    "target": "Target: {{target}}",
+    "overdue": "Overdue assignments",
+    "overdueShare": "{{share}} of all assignments",
+    "activeEmployees": "Active employees",
+    "liveHint": "From the directory"
+  },
+  "byDepartment": "Completion by department",
+  "departmentRow": {
+    "one": "{{name}} ({{count}} employee)",
+    "other": "{{name}} ({{count}} employees)"
+  },
+  "departmentHint": "Assignments: {{total}} • overdue: {{overdue}}",
+  "insights": {
+    "title": "Data insights",
+    "lowCompletionTitle": "Low completion",
+    "lowCompletion": "{{name}}: {{value}} of assignments completed — below target. Check workload and deadlines.",
+    "overdueTitle": "Deadline risk",
+    "overdue": {
+      "one": "{{name}}: {{count}} overdue assignment.",
+      "other": "{{name}}: {{count}} overdue assignments."
+    },
+    "leaderTitle": "Completion leader",
+    "leader": "{{name}} — {{value}} of assignments completed.",
+    "note": "Insights are recalculated when filters change."
+  }
+}

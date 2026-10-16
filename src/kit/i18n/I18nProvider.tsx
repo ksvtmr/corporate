@@ -164,7 +164,7 @@ export const I18nProvider: React.FC<I18nProviderProps> = ({ children, initialLoc
             type="button"
             onClick={() => window.location.reload()}
             className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium"
-            aria-label="Reload / Перезагрузить / Қайта жүктеу"
+            /* i18n-ignore: catalogue failed to load, so a trilingual label is used */ aria-label="Reload / Перезагрузить / Қайта жүктеу"
           >
             ↻
           </button>

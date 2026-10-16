@@ -213,11 +213,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const changeLocale = useCallback(
     async (next: Locale) => {
+      // Save the profile preference immediately (in parallel with loading the
+      // catalogue) so a quick navigation right after switching cannot drop it.
+      const saving = user ? api.put<User>('/identity/me/preferences', { locale: next }) : null;
       await setLocale(next);
-      if (user) {
-        const res = await api.put<User>('/identity/me/preferences', { locale: next });
-        if (res.success && res.data) setUser(res.data);
-      }
+      const res = await saving;
+      if (res?.success && res.data) setUser(res.data);
     },
     [setLocale, user],
   );

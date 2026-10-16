@@ -42,16 +42,18 @@ export const AssignmentsPage: React.FC = () => {
     ...tests.map((x) => ({ value: `test:${x.id}`, label: `${lt(x.title)} (${t('assignments.testSuffix')})` })),
   ];
 
-  // Prefill from deep links (?assignee=<member id>&track=<track id>).
+  // Prefill from deep links (?assignee=<member id>&track=<track id>|test=<test id>).
   useEffect(() => {
     const prefillAssignee = searchParams.get('assignee');
     const prefillTrack = searchParams.get('track');
-    if (!prefillAssignee && !prefillTrack) return;
+    const prefillTest = searchParams.get('test');
+    if (!prefillAssignee && !prefillTrack && !prefillTest) return;
     if (prefillAssignee) {
       setAssigneeType('member');
       setAssigneeId(prefillAssignee);
     }
     if (prefillTrack) setTarget(`track:${prefillTrack}`);
+    if (prefillTest) setTarget(`test:${prefillTest}`);
     setIsCreateOpen(true);
     setSearchParams({}, { replace: true });
   }, [searchParams, setSearchParams]);
