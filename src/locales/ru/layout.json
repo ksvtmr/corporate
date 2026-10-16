@@ -1,0 +1,41 @@
+{
+  "skipToContent": "Перейти к содержимому",
+  "sidebar": "Боковая панель",
+  "mainNav": "Основная навигация",
+  "organizations": "Организации",
+  "logout": "Выйти",
+  "openMenu": "Открыть меню",
+  "closeMenu": "Закрыть меню",
+  "demoSwitcher": {
+    "label": "Демо: сменить роль",
+    "signInAs": "Войти как {{name}} ({{email}})"
+  },
+  "nav": {
+    "myDashboard": "Мой дашборд",
+    "player": "Плеер курса",
+    "myTests": "Тесты и аттестации",
+    "flashcards": "Карточки",
+    "aiChat": "Корпоративный AI-чат",
+    "teamDashboard": "Дашборд команды",
+    "myTeam": "Моя команда",
+    "teamAssignments": "Успеваемость и дедлайны",
+    "teamAnalytics": "Аналитика команды",
+    "knowledgeAi": "База знаний и AI",
+    "trainerDashboard": "Дашборд методиста",
+    "knowledgeBase": "База знаний",
+    "tracks": "Учебные треки",
+    "assessments": "Банк вопросов и тесты",
+    "dashboard": "Дашборд",
+    "employees": "Сотрудники",
+    "departments": "Оргструктура",
+    "materials": "Материалы",
+    "cohorts": "Когорты",
+    "assignments": "Назначения",
+    "assessmentsBank": "Тесты и банк вопросов",
+    "reviews": "Проверка ответов (AI)",
+    "integrity": "События честности",
+    "analytics": "HR-аналитика",
+    "reports": "Экспорт отчётов",
+    "settings": "Настройки"
+  }
+}

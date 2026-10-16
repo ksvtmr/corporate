@@ -1,0 +1,110 @@
+{
+  "documentTitle": "iClever Corporate — corporate learning and onboarding",
+  "actions": {
+    "close": "Close",
+    "dismiss": "Dismiss notification",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "retry": "Try again",
+    "back": "Back",
+    "next": "Next",
+    "save": "Save",
+    "saveChanges": "Save changes",
+    "create": "Create",
+    "add": "Add",
+    "delete": "Delete",
+    "remove": "Remove",
+    "edit": "Edit",
+    "details": "Details",
+    "download": "Download",
+    "search": "Search",
+    "copy": "Copy",
+    "copied": "Copied",
+    "publish": "Publish",
+    "clearSelection": "Clear selection",
+    "previous": "Previous",
+    "nextPage": "Next"
+  },
+  "states": {
+    "loading": "Loading…",
+    "loadingData": "Loading data…",
+    "loadingModule": "Loading module…",
+    "noData": "No data to display",
+    "empty": "Nothing found",
+    "emptyFiltered": "Nothing matches the selected filters",
+    "saving": "Saving…",
+    "unsavedChanges": "You have unsaved changes",
+    "leaveConfirm": "You have unsaved changes. Leave this page?"
+  },
+  "filters": {
+    "allStatuses": "All statuses",
+    "allTypes": "All types",
+    "allDepartments": "All departments",
+    "allRoles": "All roles",
+    "sortBy": "Sort by",
+    "status": "Status",
+    "type": "Type"
+  },
+  "pagination": {
+    "summary": "{{from}}–{{to}} of {{total}}",
+    "page": "Page {{page}} of {{pages}}",
+    "label": "Pagination"
+  },
+  "demoData": {
+    "label": "Demo data",
+    "tooltip": "Illustrative demo figures: not calculated from your organization's real data",
+    "localNotice": "Changes in this module are stored in this browser only (demo mode without a content server)."
+  },
+  "language": {
+    "label": "Interface language",
+    "translations": "Translations",
+    "missingTranslation": "Translation missing",
+    "missingFor": "Missing translation: {{locales}}",
+    "shownIn": "No translation — showing the {{language}} version"
+  },
+  "upload": {
+    "label": "Upload a learning material or policy",
+    "description": "PDF, DOCX, PPTX, TXT, Markdown, MP4 — up to {{max}} MB",
+    "unsupported": "Unsupported file format: {{ext}}. Allowed: {{allowed}}",
+    "tooLarge": "The file exceeds the {{max}} MB limit"
+  },
+  "units": {
+    "mb": "{{value}} MB",
+    "gb": "{{value}} GB",
+    "minutes": {
+      "one": "{{count}} minute",
+      "other": "{{count}} minutes"
+    },
+    "minutesShort": "{{count}} min",
+    "hoursShort": "{{count}} h",
+    "people": {
+      "one": "{{count}} person",
+      "other": "{{count}} people"
+    },
+    "employees": {
+      "one": "{{count}} employee",
+      "other": "{{count}} employees"
+    },
+    "points": {
+      "one": "{{count}} point",
+      "other": "{{count}} points"
+    },
+    "questions": {
+      "one": "{{count}} question",
+      "other": "{{count}} questions"
+    },
+    "blocks": {
+      "one": "{{count}} block",
+      "other": "{{count}} blocks"
+    },
+    "days": {
+      "one": "{{count}} day",
+      "other": "{{count}} days"
+    }
+  },
+  "yes": "Yes",
+  "no": "No",
+  "on": "On",
+  "off": "Off",
+  "notSet": "Not set"
+}

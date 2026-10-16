@@ -1,0 +1,76 @@
+{
+  "title": "Organization structure",
+  "subtitle": "Departments, positions and managers",
+  "actions": {
+    "addPosition": "Add position",
+    "addDepartment": "Add department",
+    "archive": "Archive",
+    "archiveNamed": "Archive {{name}}",
+    "editNamed": "Edit {{name}}"
+  },
+  "tabs": {
+    "departments": "Departments ({{count}})",
+    "positions": "Positions ({{count}})"
+  },
+  "searchDepartments": "Search departments…",
+  "searchPositions": "Search positions…",
+  "sort": {
+    "members": "By headcount",
+    "name": "By name (A–Z)"
+  },
+  "emptyTitle": "No departments yet",
+  "emptyHint": "Create your first department to group employees and assign learning by team.",
+  "emptyPositions": "The position directory is empty",
+  "card": {
+    "manager": "Manager:",
+    "noManager": "not assigned",
+    "parent": "Part of: {{name}}"
+  },
+  "levels": {
+    "Intern": "Intern",
+    "Junior": "Junior",
+    "Middle": "Middle",
+    "Senior": "Senior",
+    "Lead": "Lead",
+    "Director": "Director"
+  },
+  "form": {
+    "createTitle": "New department",
+    "editTitle": "Edit department",
+    "subtitle": "The name can be set in three languages; the organization's default language is required",
+    "name": "Department name",
+    "namePlaceholder": "e.g. Marketing",
+    "nameRequired": "Enter a department name.",
+    "code": "Department code",
+    "codeLocked": "The code is used for imports and cannot be changed",
+    "parent": "Parent department",
+    "noParent": "None (top level)",
+    "description": "Description",
+    "descriptionPlaceholder": "Short description of the department's responsibilities…",
+    "create": "Create department"
+  },
+  "archive": {
+    "title": "Archive this department?",
+    "message": {
+      "one": "“{{name}}” will be hidden from the org structure. It currently has {{count}} employee — only empty departments without sub-departments can be archived.",
+      "other": "“{{name}}” will be hidden from the org structure. It currently has {{count}} employees — only empty departments without sub-departments can be archived."
+    }
+  },
+  "position": {
+    "createTitle": "New position",
+    "subtitle": "Add a position to the corporate job directory",
+    "title": "Position title",
+    "codeLabel": "Position code",
+    "code": "Code: {{code}}",
+    "level": "Grade / level",
+    "description": "Responsibilities",
+    "descriptionPlaceholder": "Key competencies and responsibilities…",
+    "create": "Create position"
+  },
+  "toast": {
+    "created": "Department “{{name}}” created",
+    "updated": "Changes to “{{name}}” saved",
+    "archived": "Department “{{name}}” archived",
+    "positionCreated": "Position “{{title}}” added to the directory"
+  }
+}

@@ -1,350 +1,321 @@
-import React, { useState } from 'react';
-import {
-  CheckCircle,
-  Sparkles,
-  AlertTriangle,
-  RotateCcw,
-  Flag,
-  Layers,
-  MessageSquare,
-  User,
-  Check,
-  X,
-  ChevronRight,
-  Filter,
-  Search,
-  ArrowUpDown
-} from 'lucide-react';
-import { Button, Card, Badge, Input, Modal } from '@iclever/frontend-kit';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Sparkles, Layers, Check, X, Search } from 'lucide-react';
+import { api, Badge, Button, ConfirmDialog, EmptyState, ErrorState, LocalizedText, Modal, Spinner, useApiErrorMessage, useI18n, useToast, ApiError } from '@iclever/frontend-kit';
 
-interface OpenAnswerReview {
+interface Review {
   id: string;
   student_name: string;
-  question_text: string;
+  question_text: LocalizedText;
   student_answer: string;
   ai_score: number;
   max_score: number;
   ai_confidence: number;
-  ai_justification: string;
-  matched_criteria: string[];
-  missed_criteria: string[];
-  cluster_tag?: string;
+  ai_justification: LocalizedText;
+  matched_criteria: LocalizedText[];
+  missed_criteria: LocalizedText[];
+  cluster_tag: LocalizedText;
   status: 'pending' | 'approved' | 'overridden';
+  reviewer_comment?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_at: string;
 }
 
-const initialReviews: OpenAnswerReview[] = [
-  {
-    id: 'rev-001',
-    student_name: 'Марат Жумабаев',
-    question_text: 'Опишите алгоритм действий дежурного инженера при обнаружении несанкционированного изменения ролей в базе данных.',
-    student_answer: 'Сразу блокирую подозрительную сессию через revoke токена, проверяю audit_logs для выявления ip и аккаунта инициатора, пишу в канал безопасности инцидент и оповещаю CISO.',
-    ai_score: 18,
-    max_score: 20,
-    ai_confidence: 94,
-    ai_justification: 'Ответ полностью покрывает первоочередные меры локализации инцидента и эскалацию. Не упомянуто создание снапшота логов для форензики, сняты 2 балла.',
-    matched_criteria: ['Блокировка сессии/токена', 'Аудит таблицы audit_logs', 'Эскалация CISO'],
-    missed_criteria: ['Снятие дампа состояния памяти / сессий для форензики'],
-    cluster_tag: 'Инциденты ИБ: эскалация и изоляция',
-    status: 'pending',
-  },
-  {
-    id: 'rev-002',
-    student_name: 'Александр Петров',
-    question_text: 'Опишите алгоритм действий дежурного инженера при обнаружении несанкционированного изменения ролей в базе данных.',
-    student_answer: 'Перезагружаю контейнер сервиса и пишу в общий чат разработчиков о странной активности.',
-    ai_score: 5,
-    max_score: 20,
-    ai_confidence: 96,
-    ai_justification: 'Грубая ошибка: перезагрузка контейнера уничтожает оперативные логи сессии и не отзывает скомпрометированный токен. Нет уведомления ИБ.',
-    matched_criteria: ['Попытка реакции на инцидент'],
-    missed_criteria: ['Блокировка скомпрометированной сессии', 'Аудит логов', 'Эскалация CISO'],
-    cluster_tag: 'Ошибочная перезагрузка вместо изоляции',
-    status: 'pending',
-  },
-  {
-    id: 'rev-003',
-    student_name: 'Нурлан Сейтов',
-    question_text: 'Как предотвратить дублирование сообщений при повторной доставке из очереди NATS?',
-    student_answer: 'Реализовать идемпотентный консьюмер с проверкой id сообщения в кэше Redis или в таблице обработанных событий в транзакции.',
-    ai_score: 20,
-    max_score: 20,
-    ai_confidence: 98,
-    ai_justification: 'Идеальный ответ с указанием обоих рекомендованных вариантов (in-memory дедупликация и БД транзакционная фиксация).',
-    matched_criteria: ['Идемпотентный консьюмер', 'Транзакционная дедупликация'],
-    missed_criteria: [],
-    cluster_tag: 'Идемпотентность распределенных очередей',
-    status: 'approved',
-  },
-];
+const STATUS_VARIANT = { pending: 'info', approved: 'success', overridden: 'warning' } as const;
 
 export const ReviewsPage: React.FC = () => {
-  const [reviews, setReviews] = useState<OpenAnswerReview[]>(initialReviews);
+  const { t, lt, formatDate, formatPercent } = useI18n();
+  const toast = useToast();
+  const errorMessage = useApiErrorMessage();
+  const [reviews, setReviews] = useState<Review[] | null>(null);
+  const [loadError, setLoadError] = useState<ApiError | null>(null);
   const [isClustered, setIsClustered] = useState(false);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [sortOrder, setSortOrder] = useState<'confidence_desc' | 'score_asc' | 'score_desc'>('confidence_desc');
-
-  const [selectedReview, setSelectedReview] = useState<OpenAnswerReview | null>(null);
-  const [overrideScore, setOverrideScore] = useState<number>(0);
+  const [statusFilter, setStatusFilter] = useState('pending');
+  const [sortOrder, setSortOrder] = useState<'confidence_desc' | 'score_asc' | 'score_desc' | 'newest'>('newest');
+  const [selected, setSelected] = useState<Review | null>(null);
+  const [overrideScore, setOverrideScore] = useState('');
   const [overrideComment, setOverrideComment] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [formError, setFormError] = useState('');
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmAll, setConfirmAll] = useState(false);
 
-  const handleApprove = (id: string) => {
-    setReviews(reviews.map((r) => (r.id === id ? { ...r, status: 'approved' } : r)));
-    if (selectedReview?.id === id) setSelectedReview(null);
-    setToastMessage('Оценка AI успешно подтверждена!');
-    setTimeout(() => setToastMessage(null), 3000);
+  const load = useCallback(async () => {
+    const res = await api.get<Review[]>('/assessment/reviews', { noCache: true });
+    if (res.success && res.data) {
+      setReviews(res.data);
+      setLoadError(null);
+    } else setLoadError(res.error ?? null);
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const replace = (updated: Review) => setReviews((prev) => (prev ? prev.map((r) => (r.id === updated.id ? updated : r)) : prev));
+
+  const approve = async (r: Review) => {
+    setBusyId(r.id);
+    const res = await api.post<Review>(`/assessment/reviews/${r.id}/approve`);
+    setBusyId(null);
+    if (res.success && res.data) {
+      replace(res.data);
+      toast.success(t('reviews.toast.approved', { name: r.student_name }));
+    } else {
+      toast.error(errorMessage(res.error));
+      void load();
+    }
   };
 
-  const handleApproveAllPending = () => {
-    setReviews(reviews.map((r) => (r.status === 'pending' ? { ...r, status: 'approved' } : r)));
-    setToastMessage('Все ожидающие решения ответы подтверждены в 1 клик!');
-    setTimeout(() => setToastMessage(null), 3500);
+  const approveAll = async () => {
+    setBusyId('all');
+    const res = await api.post<{ affected_rows: number }>('/assessment/reviews/approve-all');
+    setBusyId(null);
+    setConfirmAll(false);
+    if (res.success) {
+      toast.success(t('reviews.toast.approvedAll', { count: res.data?.affected_rows ?? 0 }));
+      void load();
+    } else toast.error(errorMessage(res.error));
   };
 
-  const handleOverride = () => {
-    if (!selectedReview) return;
-    setReviews(
-      reviews.map((r) =>
-        r.id === selectedReview.id
-          ? {
-              ...r,
-              status: 'overridden',
-              ai_score: overrideScore,
-              ai_justification: `[Ручной пересмотр методистом]: ${overrideComment}`,
-            }
-          : r
-      )
-    );
-    setSelectedReview(null);
-    setToastMessage(`Балл переопределен на ${overrideScore} / ${selectedReview.max_score}!`);
-    setTimeout(() => setToastMessage(null), 3000);
+  const submitOverride = async () => {
+    if (!selected) return;
+    const score = Number(overrideScore);
+    if (overrideScore === '' || !Number.isInteger(score) || score < 0 || score > selected.max_score) {
+      return setFormError(t('reviews.override.scoreError', { max: selected.max_score }));
+    }
+    if (overrideComment.trim().length < 3) return setFormError(t('reviews.override.commentError'));
+    setBusyId(selected.id);
+    const res = await api.post<Review>(`/assessment/reviews/${selected.id}/override`, { score, comment: overrideComment.trim() });
+    setBusyId(null);
+    if (res.success && res.data) {
+      replace(res.data);
+      toast.success(t('reviews.toast.overridden', { score, max: selected.max_score }));
+      setSelected(null);
+    } else setFormError(errorMessage(res.error));
   };
 
-  // Filter & Sort
-  const filtered = reviews
-    .filter((r) => {
-      const matchSearch = r.student_name.toLowerCase().includes(search.toLowerCase()) || r.question_text.toLowerCase().includes(search.toLowerCase());
-      const matchStatus = statusFilter === 'all' || r.status === statusFilter;
-      return matchSearch && matchStatus;
-    })
-    .sort((a, b) => {
-      if (sortOrder === 'confidence_desc') return b.ai_confidence - a.ai_confidence;
-      if (sortOrder === 'score_asc') return a.ai_score - b.ai_score;
-      if (sortOrder === 'score_desc') return b.ai_score - a.ai_score;
-      return 0;
-    });
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return (reviews ?? [])
+      .filter((r) => (!q || `${r.student_name} ${Object.values(r.question_text).join(' ')}`.toLowerCase().includes(q)) && (statusFilter === 'all' || r.status === statusFilter))
+      .sort((a, b) => {
+        if (sortOrder === 'confidence_desc') return b.ai_confidence - a.ai_confidence;
+        if (sortOrder === 'score_asc') return a.ai_score / a.max_score - b.ai_score / b.max_score;
+        if (sortOrder === 'score_desc') return b.ai_score / b.max_score - a.ai_score / a.max_score;
+        return b.created_at.localeCompare(a.created_at);
+      });
+  }, [reviews, search, statusFilter, sortOrder]);
+
+  const groups = useMemo(() => {
+    if (!isClustered) return [{ key: 'all', label: '', items: filtered }];
+    const map = new Map<string, { key: string; label: string; items: Review[] }>();
+    for (const r of filtered) {
+      const label = lt(r.cluster_tag);
+      const g = map.get(label) ?? { key: label, label, items: [] };
+      g.items.push(r);
+      map.set(label, g);
+    }
+    return Array.from(map.values()).sort((a, b) => b.items.length - a.items.length);
+  }, [filtered, isClustered, lt]);
+
+  const pendingCount = reviews?.filter((r) => r.status === 'pending').length ?? 0;
+
+  if (loadError) return <ErrorState message={errorMessage(loadError, 'errors.loadFailed')} onRetry={() => void load()} />;
+  if (!reviews) return <Spinner className="py-16" />;
 
   return (
     <div className="space-y-6">
-      {toastMessage && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-sm animate-fadeIn">
-          <span className="flex items-center">
-            <Check className="w-4 h-4 mr-2 text-emerald-600" />
-            {toastMessage}
-          </span>
-          <button onClick={() => setToastMessage(null)}>✕</button>
-        </div>
-      )}
-
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Проверка открытых ответов с AI</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Очередь развернутых ответов сотрудников с семантической оценкой, анализом критериев и кластеризацией ошибок
-          </p>
+          <h1 className="text-xl font-bold text-slate-900">{t('reviews.title')}</h1>
+          <p className="text-xs text-slate-500 mt-1">{t('reviews.subtitle')}</p>
         </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleApproveAllPending}
-          >
-            <Check className="w-4 h-4 mr-1 text-emerald-600" />
-            Подтвердить все AI
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setConfirmAll(true)} disabled={pendingCount === 0}>
+            <Check className="w-4 h-4 mr-1 text-emerald-600" aria-hidden="true" />
+            {t('reviews.actions.approveAll', { count: pendingCount })}
           </Button>
-          <Button
-            variant={isClustered ? 'primary' : 'outline'}
-            size="sm"
-            onClick={() => setIsClustered(!isClustered)}
-          >
-            <Layers className="w-4 h-4 mr-1.5" />
-            {isClustered ? 'Обычный список' : 'Кластеризовать по ошибкам'}
+          <Button variant={isClustered ? 'primary' : 'outline'} size="sm" onClick={() => setIsClustered((v) => !v)} aria-pressed={isClustered}>
+            <Layers className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            {isClustered ? t('reviews.actions.plainList') : t('reviews.actions.cluster')}
           </Button>
         </div>
       </div>
 
-      {/* Filter / Search Bar */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 text-xs">
         <div className="relative flex-1 w-full sm:w-auto">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" aria-hidden="true" />
           <input
-            type="text"
-            placeholder="Поиск по студенту или формулировке вопроса..."
+            type="search"
+            aria-label={t('common.actions.search')}
+            placeholder={t('reviews.searchPlaceholder')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           />
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto text-xs">
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-700"
-          >
-            <option value="all">Все статусы</option>
-            <option value="pending">Ожидает решения</option>
-            <option value="approved">Подтверждено</option>
-            <option value="overridden">Переопределено</option>
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <select aria-label={t('common.filters.status')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-700">
+            <option value="all">{t('common.filters.allStatuses')}</option>
+            {(['pending', 'approved', 'overridden'] as const).map((s) => (
+              <option key={s} value={s}>
+                {t(`reviews.status.${s}`)}
+              </option>
+            ))}
           </select>
-
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value as any)}
-            className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-700 font-medium"
-          >
-            <option value="confidence_desc">По уверенности AI (по убыванию)</option>
-            <option value="score_asc">Сначала низкий балл (ошибки)</option>
-            <option value="score_desc">Сначала высокий балл</option>
+          <select aria-label={t('common.filters.sortBy')} value={sortOrder} onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)} className="rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-slate-700 font-medium">
+            <option value="newest">{t('reviews.sort.newest')}</option>
+            <option value="confidence_desc">{t('reviews.sort.confidence')}</option>
+            <option value="score_asc">{t('reviews.sort.scoreAsc')}</option>
+            <option value="score_desc">{t('reviews.sort.scoreDesc')}</option>
           </select>
         </div>
       </div>
 
-      {/* Review Cards Grid */}
-      <div className="space-y-4">
-        {filtered.map((rev) => (
-          <div
-            key={rev.id}
-            className="p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all space-y-3"
+      {filtered.length === 0 ? (
+        <EmptyState title={statusFilter === 'pending' && !search ? t('reviews.emptyPending') : t('common.states.emptyFiltered')} />
+      ) : (
+        groups.map((group) => (
+          <section key={group.key} className="space-y-4" aria-label={group.label || undefined}>
+            {isClustered && (
+              <h2 className="text-xs font-bold text-indigo-700 uppercase tracking-wider">
+                {group.label} · {group.items.length}
+              </h2>
+            )}
+            {group.items.map((rev) => (
+              <article key={rev.id} className="p-4 sm:p-5 bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="font-semibold text-slate-900">{rev.student_name}</span>
+                      <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[10px] font-medium">{lt(rev.cluster_tag)}</span>
+                      <time className="text-[10px] text-slate-400" dateTime={rev.created_at}>
+                        {formatDate(rev.created_at, 'dateTime')}
+                      </time>
+                    </div>
+                    <h3 className="text-sm font-semibold text-slate-900 mt-1">{lt(rev.question_text)}</h3>
+                  </div>
+                  <div className="sm:text-right shrink-0">
+                    <div className="text-base font-bold text-indigo-600">{t('reviews.score', { score: rev.ai_score, max: rev.max_score })}</div>
+                    <div className="text-[10px] text-slate-500">{t('reviews.confidence', { value: formatPercent(rev.ai_confidence) })}</div>
+                  </div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-800">
+                  <span className="font-semibold text-slate-500 block mb-1">{t('reviews.answer')}</span>
+                  <p className="italic whitespace-pre-line break-words">{rev.student_answer}</p>
+                </div>
+                <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 text-xs space-y-2">
+                  <div className="flex items-center text-indigo-900 font-semibold text-[11px]">
+                    <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" aria-hidden="true" />
+                    {t('reviews.justification')}
+                  </div>
+                  <p className="text-slate-700">{lt(rev.ai_justification)}</p>
+                  <ul className="flex flex-wrap gap-2 pt-1 text-[11px]" aria-label={t('reviews.criteria')}>
+                    {rev.matched_criteria.map((c, i) => (
+                      <li key={`m${i}`} className="inline-flex items-center text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">
+                        <Check className="w-3 h-3 mr-1" aria-label={t('reviews.matched')} /> {lt(c)}
+                      </li>
+                    ))}
+                    {rev.missed_criteria.map((c, i) => (
+                      <li key={`x${i}`} className="inline-flex items-center text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
+                        <X className="w-3 h-3 mr-1" aria-label={t('reviews.missed')} /> {lt(c)}
+                      </li>
+                    ))}
+                  </ul>
+                  {rev.reviewer_comment && <p className="text-[11px] text-amber-800">{t('reviews.reviewerComment', { comment: rev.reviewer_comment })}</p>}
+                </div>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={STATUS_VARIANT[rev.status]}>{t(`reviews.status.${rev.status}`)}</Badge>
+                    {rev.reviewed_by && <span className="text-[10px] text-slate-400">{t('reviews.reviewedBy', { name: rev.reviewed_by, date: formatDate(rev.reviewed_at, 'dateTime') })}</span>}
+                  </div>
+                  {rev.status === 'pending' && (
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelected(rev);
+                          setOverrideScore(String(rev.ai_score));
+                          setOverrideComment('');
+                          setFormError('');
+                        }}
+                      >
+                        {t('reviews.actions.changeScore')}
+                      </Button>
+                      <Button variant="primary" size="sm" onClick={() => void approve(rev)} isLoading={busyId === rev.id}>
+                        <Check className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                        {t('reviews.actions.approve')}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </article>
+            ))}
+          </section>
+        ))
+      )}
+
+      <ConfirmDialog
+        isOpen={confirmAll}
+        title={t('reviews.approveAll.title')}
+        message={t('reviews.approveAll.message', { count: pendingCount })}
+        tone="primary"
+        confirmLabel={t('reviews.approveAll.confirm')}
+        isLoading={busyId === 'all'}
+        onConfirm={() => void approveAll()}
+        onCancel={() => setConfirmAll(false)}
+      />
+
+      {selected && (
+        <Modal isOpen onClose={() => setSelected(null)} title={t('reviews.override.title')} size="md" preventClose={busyId === selected.id}>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitOverride();
+            }}
+            className="space-y-4 text-xs py-2"
           >
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center space-x-2 text-xs">
-                  <span className="font-semibold text-slate-900">{rev.student_name}</span>
-                  <span className="text-slate-400">•</span>
-                  <span className="text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[10px] font-medium">
-                    {rev.cluster_tag}
-                  </span>
-                </div>
-                <h3 className="text-sm font-semibold text-slate-900 mt-1">{rev.question_text}</h3>
+            {formError && (
+              <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                {formError}
               </div>
-              <div className="text-right">
-                <div className="text-base font-bold text-indigo-600">
-                  {rev.ai_score} / {rev.max_score} б.
-                </div>
-                <div className="text-[10px] text-slate-400">AI Уверенность: {rev.ai_confidence}%</div>
-              </div>
-            </div>
-
-            {/* Student Answer */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs text-slate-800">
-              <span className="font-semibold text-slate-500 block mb-1">Ответ сотрудника:</span>
-              <p className="italic">{rev.student_answer}</p>
-            </div>
-
-            {/* AI Justification & Criteria */}
-            <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 text-xs space-y-2">
-              <div className="flex items-center text-indigo-900 font-semibold text-[11px]">
-                <Sparkles className="w-3.5 h-3.5 mr-1 text-indigo-600" />
-                Обоснование оценки AI:
-              </div>
-              <p className="text-slate-700">{rev.ai_justification}</p>
-
-              <div className="flex flex-wrap gap-2 pt-1 text-[11px]">
-                {rev.matched_criteria.map((c, i) => (
-                  <span key={i} className="inline-flex items-center text-green-700 bg-green-50 px-2 py-0.5 rounded border border-green-200">
-                    <Check className="w-3 h-3 mr-1" /> {c}
-                  </span>
-                ))}
-                {rev.missed_criteria.map((c, i) => (
-                  <span key={i} className="inline-flex items-center text-red-700 bg-red-50 px-2 py-0.5 rounded border border-red-200">
-                    <X className="w-3 h-3 mr-1" /> {c}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
-              <Badge variant={rev.status === 'approved' ? 'success' : rev.status === 'overridden' ? 'warning' : 'info'}>
-                {rev.status === 'approved' ? 'Подтверждено' : rev.status === 'overridden' ? 'Переопределено' : 'Ожидает решения'}
-              </Badge>
-
-              {rev.status === 'pending' && (
-                <div className="flex items-center space-x-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedReview(rev);
-                      setOverrideScore(rev.ai_score);
-                    }}
-                  >
-                    Изменить балл
-                  </Button>
-                  <Button variant="primary" size="sm" onClick={() => handleApprove(rev.id)}>
-                    <Check className="w-3.5 h-3.5 mr-1" />
-                    Одобрить оценку AI
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {filtered.length === 0 && (
-          <div className="py-12 text-center text-slate-400 text-xs bg-white rounded-xl border border-slate-200">
-            Ответы по заданным критериям не найдены
-          </div>
-        )}
-      </div>
-
-      {/* Override Modal */}
-      {selectedReview && (
-        <Modal
-          isOpen={!!selectedReview}
-          onClose={() => setSelectedReview(null)}
-          title="Ручной пересмотр оценки ответа"
-          size="md"
-        >
-          <div className="space-y-4 text-xs py-2">
+            )}
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
-              <span className="font-semibold text-slate-900 block">{selectedReview.student_name}</span>
-              <p className="italic text-slate-600">«{selectedReview.student_answer}»</p>
+              <span className="font-semibold text-slate-900 block">{selected.student_name}</span>
+              <p className="italic text-slate-600 break-words">{selected.student_answer}</p>
             </div>
-
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">
-                Балл методиста (из {selectedReview.max_score})
+              <label htmlFor="override-score" className="block text-xs font-medium text-slate-700 mb-1">
+                {t('reviews.override.score', { max: selected.max_score })}
               </label>
-              <input
-                type="number"
-                min="0"
-                max={selectedReview.max_score}
-                value={overrideScore}
-                onChange={(e) => setOverrideScore(Number(e.target.value))}
-                className="w-full rounded-lg border border-slate-300 p-2 text-xs"
-              />
+              <input id="override-score" type="number" min={0} max={selected.max_score} step={1} value={overrideScore} onChange={(e) => setOverrideScore(e.target.value)} className="w-full rounded-lg border border-slate-300 p-2 text-xs" required />
             </div>
-
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Комментарий / Обоснование</label>
+              <label htmlFor="override-comment" className="block text-xs font-medium text-slate-700 mb-1">
+                {t('reviews.override.comment')}
+              </label>
               <textarea
+                id="override-comment"
                 rows={3}
-                placeholder="Укажите аргументы изменения оценки..."
+                maxLength={2000}
+                placeholder={t('reviews.override.commentPlaceholder')}
                 value={overrideComment}
                 onChange={(e) => setOverrideComment(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-indigo-500"
+                required
               />
             </div>
-
-            <div className="pt-2 flex justify-end space-x-2">
-              <Button variant="secondary" onClick={() => setSelectedReview(null)}>Отмена</Button>
-              <Button variant="primary" onClick={handleOverride}>Сохранить пересмотр</Button>
+            <div className="pt-2 flex justify-end gap-2">
+              <Button variant="secondary" type="button" onClick={() => setSelected(null)}>
+                {t('common.actions.cancel')}
+              </Button>
+              <Button variant="primary" type="submit" isLoading={busyId === selected.id}>
+                {t('reviews.override.save')}
+              </Button>
             </div>
-          </div>
+          </form>
         </Modal>
       )}
     </div>

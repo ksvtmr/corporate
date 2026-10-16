@@ -1,0 +1,83 @@
+{
+  "title": "Assignments & deadlines",
+  "subtitle": "Individual and cohort assignments, deadline tracking and cancellation with a recorded reason",
+  "subtitleManager": "Assignments for your team",
+  "empty": "No assignments yet",
+  "searchPlaceholder": "Search by assignee or program…",
+  "testSuffix": "test",
+  "unknownCohort": "Cohort removed",
+  "unknownMember": "Employee unavailable",
+  "unknownTarget": "Program removed",
+  "assignedBy": "Assigned by {{name}}",
+  "mandatory": "Mandatory",
+  "cancelledNote": "Cancelled by {{name}}: {{reason}}",
+  "status": {
+    "assigned": "Assigned",
+    "in_progress": "In progress",
+    "completed": "Completed",
+    "overdue": "Overdue",
+    "cancelled": "Cancelled"
+  },
+  "type": {
+    "member": "Employee",
+    "cohort": "Cohort"
+  },
+  "kpi": {
+    "total": "Total assignments",
+    "in_progress": "In progress",
+    "overdue": "Overdue",
+    "completed": "Completed"
+  },
+  "sort": {
+    "due": "Deadline: soonest first",
+    "progressAsc": "Progress: lowest first",
+    "progressDesc": "Progress: highest first",
+    "name": "Assignee: A–Z"
+  },
+  "columns": {
+    "assignee": "Assignee",
+    "program": "Course / track",
+    "due": "Deadline",
+    "progress": "Progress",
+    "status": "Status",
+    "actions": "Actions"
+  },
+  "actions": {
+    "new": "New assignment",
+    "remind": "Send reminder",
+    "extend": "Extend deadline by 7 days",
+    "cancel": "Cancel"
+  },
+  "form": {
+    "title": "Assign learning",
+    "assigneeType": "Assignee type",
+    "member": "Employee",
+    "cohort": "Cohort",
+    "choose": "Choose…",
+    "program": "Program or test",
+    "onlyPublished": "Only published tracks and ready tests are available",
+    "due": "Deadline",
+    "mandatory": "Mandatory, with a reminder 3 days before the deadline",
+    "submit": "Assign",
+    "errors": {
+      "assignee": "Choose an employee or a cohort.",
+      "target": "Choose a learning program.",
+      "pastDate": "The deadline cannot be in the past.",
+      "duplicate": "This program is already assigned to the selected assignee."
+    }
+  },
+  "cancel": {
+    "title": "Cancel assignment",
+    "message": "Withdraw “{{program}}” from “{{assignee}}”? The reason will be kept in the history.",
+    "confirm": "Confirm cancellation",
+    "reason": "Cancellation reason",
+    "reasonPlaceholder": "e.g. change of role",
+    "reasonHint": "Required, at least 3 characters"
+  },
+  "toast": {
+    "created": "“{{program}}” assigned to {{assignee}}",
+    "reminded": "Reminder recorded for {{assignee}} (due {{date}}). Emails are not sent in demo mode.",
+    "extended": "New deadline: {{date}}",
+    "cancelled": "Assignment cancelled; reason saved"
+  }
+}

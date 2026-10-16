@@ -1,0 +1,66 @@
+{
+  "title": "Organization settings",
+  "subtitle": "Branding, default language, allowed email domains and plan",
+  "saved": "Settings saved",
+  "discard": "Discard changes",
+  "profile": {
+    "title": "Profile & branding",
+    "subtitle": "Company details and visual identity",
+    "name": "Company name",
+    "legalName": "Legal name",
+    "legalNamePlaceholder": "Company LLP",
+    "brandColor": "Brand color",
+    "timezone": "Time zone",
+    "defaultLocale": "Default language",
+    "defaultLocaleHint": "Used for new employees until they choose a language themselves"
+  },
+  "timezones": {
+    "UTCp6": "UTC+6",
+    "UTCp5": "UTC+5 (Astana, Almaty, Tashkent)",
+    "UTCp3": "UTC+3 (Moscow, Minsk)",
+    "UTCp0": "UTC+0 (London, GMT)"
+  },
+  "domains": {
+    "title": "Allowed email domains",
+    "subtitle": "Only employees with addresses on these domains can be invited or imported",
+    "empty": "The list is empty — any domain is allowed",
+    "placeholder": "e.g. company.com",
+    "add": "Add domain",
+    "remove": "Remove domain {{domain}}",
+    "invalid": "Invalid domain",
+    "duplicate": "This domain is already listed"
+  },
+  "plan": {
+    "title": "Plan & limits",
+    "subtitle": "Seat and storage quota (calculated from actual data)",
+    "plan": "Subscription plan",
+    "seats": "Seats",
+    "seatsValue": "{{used}} of {{max}}",
+    "storage": "File storage"
+  },
+  "audit": {
+    "title": "Admin activity log",
+    "subtitle": "Latest changes to settings, staff and grading",
+    "empty": "No entries yet",
+    "actions": {
+      "organization.updated": "updated organization settings",
+      "organization.registered": "registered the organization",
+      "department.created": "created a department",
+      "department.updated": "updated a department",
+      "department.archived": "archived a department",
+      "position.created": "added a position",
+      "member.invited": "invited an employee",
+      "member.invite_resent": "resent an invitation",
+      "member.updated": "updated an employee",
+      "members.imported": "imported employees from CSV",
+      "members.exported": "exported the employee list",
+      "invitation.accepted": "accepted an invitation",
+      "review.approved": "approved an AI grade",
+      "review.approved_bulk": "approved all AI grades",
+      "review.overridden": "overrode an answer grade",
+      "integrity.dismissed": "dismissed an integrity flag",
+      "integrity.escalated": "escalated an integrity flag",
+      "track.completed": "completed a learning track"
+    }
+  }
+}

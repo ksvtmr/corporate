@@ -1,0 +1,41 @@
+{
+  "skipToContent": "Мазмұнға өту",
+  "sidebar": "Бүйірлік панель",
+  "mainNav": "Негізгі навигация",
+  "organizations": "Ұйымдар",
+  "logout": "Шығу",
+  "openMenu": "Мәзірді ашу",
+  "closeMenu": "Мәзірді жабу",
+  "demoSwitcher": {
+    "label": "Демо: рөлді ауыстыру",
+    "signInAs": "{{name}} ретінде кіру ({{email}})"
+  },
+  "nav": {
+    "myDashboard": "Менің дашбордым",
+    "player": "Курс плеері",
+    "myTests": "Тесттер мен аттестациялар",
+    "flashcards": "Карточкалар",
+    "aiChat": "Корпоративтік AI-чат",
+    "teamDashboard": "Команда дашборды",
+    "myTeam": "Менің командам",
+    "teamAssignments": "Үлгерім және мерзімдер",
+    "teamAnalytics": "Команда аналитикасы",
+    "knowledgeAi": "Білім қоры және AI",
+    "trainerDashboard": "Әдіскер дашборды",
+    "knowledgeBase": "Білім қоры",
+    "tracks": "Оқу треклері",
+    "assessments": "Сұрақтар банкі және тесттер",
+    "dashboard": "Дашборд",
+    "employees": "Қызметкерлер",
+    "departments": "Ұйымдық құрылым",
+    "materials": "Материалдар",
+    "cohorts": "Когорталар",
+    "assignments": "Тағайындаулар",
+    "assessmentsBank": "Тесттер және сұрақтар банкі",
+    "reviews": "Жауаптарды тексеру (AI)",
+    "integrity": "Адалдық оқиғалары",
+    "analytics": "HR-аналитика",
+    "reports": "Есептерді экспорттау",
+    "settings": "Баптаулар"
+  }
+}

@@ -1,0 +1,99 @@
+{
+  "title": "Білім қоры және оқу материалдары",
+  "subtitle": "Регламенттерді жүктеу, AI көмегімен тақырыптарды бөлу, нұсқалар және жариялау",
+  "searchPlaceholder": "Атауы немесе санаты бойынша іздеу…",
+  "allCategories": "Барлық санаттар",
+  "empty": "Білім қорында әзірге материалдар жоқ",
+  "processingSummary": "AI құрылымды шығарып, конспект жасауда…",
+  "required": "Міндетті",
+  "optional": "Қосымша",
+  "priorityLabel": "Басымдығы: {{priority}}",
+  "priority": {
+    "high": "жоғары",
+    "medium": "орташа",
+    "low": "төмен"
+  },
+  "kpi": {
+    "total": "Барлық файлдар",
+    "published": "Жарияланды",
+    "review": "Келісуде",
+    "processing": "AI өңдеуі",
+    "failed": "Қателер"
+  },
+  "categories": {
+    "development": "БҚ әзірлеу",
+    "compliance": "Комплаенс және қауіпсіздік",
+    "sales": "Сату",
+    "training": "Оқыту",
+    "people": "Персонал және HR"
+  },
+  "status": {
+    "uploaded": "Жүктелді",
+    "queued": "Кезекте",
+    "processing": "AI талдауы…",
+    "ready_for_review": "Тексеруге дайын",
+    "published": "Жарияланды",
+    "failed": "Өңдеу қатесі"
+  },
+  "confidentiality": {
+    "internal": "Ішкі",
+    "confidential": "Құпия",
+    "strictly_confidential": "Қатаң құпия"
+  },
+  "access": {
+    "public_within_organization": "Бүкіл ұйым",
+    "restricted_by_department": "Тек бөлімше",
+    "restricted_by_role": "Рөлдер бойынша",
+    "admins_only": "Тек әкімшілер"
+  },
+  "fields": {
+    "category": "Санат",
+    "confidentiality": "Құпиялылық",
+    "version": "Нұсқа",
+    "uploadedBy": "Авторы",
+    "access": "Қолжетімділік:"
+  },
+  "sort": {
+    "newest": "Алдымен жаңалары",
+    "title": "Атауы бойынша (А — Я)",
+    "size": "Файл өлшемі бойынша"
+  },
+  "actions": {
+    "upload": "Материал жүктеу",
+    "downloadSummary": "Конспектті жүктеп алу",
+    "publish": "Бекітіп, жариялау"
+  },
+  "detail": {
+    "title": "Материал туралы мәліметтер",
+    "meta": "Жүктеген: {{author}} • {{date}} • {{size}}",
+    "summary": "AI-конспект",
+    "topics": "Бөлінген тақырыптар ({{count}})",
+    "noTopics": "Тақырыптар бөлінбеген",
+    "removeTopic": "«{{name}}» тақырыбын жою"
+  },
+  "removeTopic": {
+    "title": "Тақырыпты жою керек пе?",
+    "message": "Тақырып осы материал бойынша сұрақтар мен карточкалар жасауда қолданылмайды."
+  },
+  "upload": {
+    "title": "Оқу материалын жүктеу",
+    "name": "Материал атауы",
+    "namePlaceholder": "Мысалы: Инженерлер онбордингінің стандарты",
+    "processing": "AI құрылым мен тақырыптарды шығаруда…",
+    "fileRequired": "Талдауды бастау үшін файлды таңдаңыз.",
+    "start": "AI талдауын бастау"
+  },
+  "generated": {
+    "summary": "AI құжат құрылымын анықтап, негізгі тақырыптарды бөлді. Жариялау алдында конспектті тексеріңіз.",
+    "topics": {
+      "intro": "Кіріспе ережелер",
+      "process": "Негізгі жұмыс процесі",
+      "checklists": "Бақылау чек-парақтары"
+    }
+  },
+  "toast": {
+    "uploaded": "Материал өңделіп, тексеруді күтуде",
+    "published": "«{{title}}» жарияланды",
+    "downloaded": "{{file}} файлы жүктелді"
+  }
+}

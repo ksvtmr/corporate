@@ -1,0 +1,124 @@
+{
+  "documentTitle": "iClever Corporate — корпоративное обучение и онбординг",
+  "actions": {
+    "close": "Закрыть",
+    "dismiss": "Скрыть уведомление",
+    "cancel": "Отмена",
+    "confirm": "Подтвердить",
+    "retry": "Повторить",
+    "back": "Назад",
+    "next": "Далее",
+    "save": "Сохранить",
+    "saveChanges": "Сохранить изменения",
+    "create": "Создать",
+    "add": "Добавить",
+    "delete": "Удалить",
+    "remove": "Убрать",
+    "edit": "Изменить",
+    "details": "Подробнее",
+    "download": "Скачать",
+    "search": "Поиск",
+    "copy": "Скопировать",
+    "copied": "Скопировано",
+    "publish": "Опубликовать",
+    "clearSelection": "Снять выбор",
+    "previous": "Предыдущая",
+    "nextPage": "Следующая"
+  },
+  "states": {
+    "loading": "Загрузка…",
+    "loadingData": "Загрузка данных…",
+    "loadingModule": "Загрузка модуля…",
+    "noData": "Нет данных для отображения",
+    "empty": "Ничего не найдено",
+    "emptyFiltered": "По заданным фильтрам ничего не найдено",
+    "saving": "Сохранение…",
+    "unsavedChanges": "Есть несохранённые изменения",
+    "leaveConfirm": "Есть несохранённые изменения. Покинуть страницу?"
+  },
+  "filters": {
+    "allStatuses": "Все статусы",
+    "allTypes": "Все типы",
+    "allDepartments": "Все подразделения",
+    "allRoles": "Все роли",
+    "sortBy": "Сортировка",
+    "status": "Статус",
+    "type": "Тип"
+  },
+  "pagination": {
+    "summary": "{{from}}–{{to}} из {{total}}",
+    "page": "Страница {{page}} из {{pages}}",
+    "label": "Постраничная навигация"
+  },
+  "demoData": {
+    "label": "Демо-данные",
+    "tooltip": "Иллюстративные показатели демо-версии: не рассчитываются из реальных данных организации",
+    "localNotice": "Изменения в этом модуле сохраняются только в этом браузере (демо-режим без сервера контента)."
+  },
+  "language": {
+    "label": "Язык интерфейса",
+    "translations": "Переводы",
+    "missingTranslation": "Перевод не заполнен",
+    "missingFor": "Нет перевода: {{locales}}",
+    "shownIn": "Перевод отсутствует — показан вариант на языке: {{language}}"
+  },
+  "upload": {
+    "label": "Загрузите учебный материал или регламент",
+    "description": "PDF, DOCX, PPTX, TXT, Markdown, MP4 — до {{max}} МБ",
+    "unsupported": "Неподдерживаемый формат файла: {{ext}}. Разрешены: {{allowed}}",
+    "tooLarge": "Размер файла превышает лимит {{max}} МБ"
+  },
+  "units": {
+    "mb": "{{value}} МБ",
+    "gb": "{{value}} ГБ",
+    "minutes": {
+      "one": "{{count}} минута",
+      "few": "{{count}} минуты",
+      "many": "{{count}} минут",
+      "other": "{{count}} минуты"
+    },
+    "minutesShort": "{{count}} мин",
+    "hoursShort": "{{count}} ч",
+    "people": {
+      "one": "{{count}} человек",
+      "few": "{{count}} человека",
+      "many": "{{count}} человек",
+      "other": "{{count}} человека"
+    },
+    "employees": {
+      "one": "{{count}} сотрудник",
+      "few": "{{count}} сотрудника",
+      "many": "{{count}} сотрудников",
+      "other": "{{count}} сотрудника"
+    },
+    "points": {
+      "one": "{{count}} балл",
+      "few": "{{count}} балла",
+      "many": "{{count}} баллов",
+      "other": "{{count}} балла"
+    },
+    "questions": {
+      "one": "{{count}} вопрос",
+      "few": "{{count}} вопроса",
+      "many": "{{count}} вопросов",
+      "other": "{{count}} вопроса"
+    },
+    "blocks": {
+      "one": "{{count}} блок",
+      "few": "{{count}} блока",
+      "many": "{{count}} блоков",
+      "other": "{{count}} блока"
+    },
+    "days": {
+      "one": "{{count}} день",
+      "few": "{{count}} дня",
+      "many": "{{count}} дней",
+      "other": "{{count}} дня"
+    }
+  },
+  "yes": "Да",
+  "no": "Нет",
+  "on": "Включено",
+  "off": "Выключено",
+  "notSet": "Не указано"
+}

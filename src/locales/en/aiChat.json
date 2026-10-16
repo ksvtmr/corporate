@@ -1,0 +1,33 @@
+{
+  "title": "Corporate AI assistant (RAG)",
+  "subtitle": "Answers from company policies with links to the original sources",
+  "scope": {
+    "label": "Search scope:",
+    "all": "Entire company knowledge base",
+    "dev": "Engineering standards",
+    "security": "Information security",
+    "sales": "B2B sales"
+  },
+  "clear": "Clear conversation",
+  "clearConfirmTitle": "Clear the conversation?",
+  "clearConfirmMessage": "All messages in this window will be removed.",
+  "samplesLabel": "Popular questions:",
+  "samples": {
+    "outbox": "How does the Transactional Outbox work?",
+    "passwords": "Company password policy and 2FA",
+    "cleanArch": "Clean architecture standards for Go services",
+    "incident": "What to do in a security incident?"
+  },
+  "logLabel": "Conversation with the assistant",
+  "greeting": "Hello! I'm the corporate knowledge-base assistant. Ask about policies, engineering standards or security rules and I'll answer with links to the sources.",
+  "you": "You",
+  "assistant": "Assistant",
+  "answeredIn": "Answered in {{language}}",
+  "sources": "Sources:",
+  "copyQuote": "Copy quote",
+  "typing": "The assistant is searching the knowledge base…",
+  "inputLabel": "Your question",
+  "placeholder": "Ask about policies, standards, deadlines…",
+  "send": "Send",
+  "disclaimer": "The assistant answers only from the corporate knowledge base and can make mistakes. Check the sources."
+}

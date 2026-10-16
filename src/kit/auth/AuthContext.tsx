@@ -1,5 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api/client';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { api, ApiError, ApiResponse } from '../api/client';
+import { useI18n } from '../i18n/I18nProvider';
+import { Locale, normalizeLocale, readStoredLocale } from '../i18n/config';
+import type { LocalizedText } from '../i18n/localized';
+import { can, Capability, MemberStatus, Role } from './permissions';
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, IS_DEMO_MODE } from './demo';
 
 export interface User {
   id: string;
@@ -8,21 +13,45 @@ export interface User {
   last_name: string;
   avatar_url?: string;
   is_active: boolean;
+  locale?: Locale | null;
 }
 
 export interface OrgMember {
   id: string;
   organization_id: string;
   user_id: string;
-  role: 'platform_super_admin' | 'org_admin' | 'hr_manager' | 'manager' | 'trainer' | 'employee';
-  status: 'invited' | 'active' | 'suspended' | 'inactive' | 'archived';
+  role: Role;
+  status: MemberStatus;
+  first_name?: string;
+  last_name?: string;
+  email?: string;
   job_title?: string;
   department_id?: string;
   department_name?: string;
+  department_name_i18n?: LocalizedText;
   manager_id?: string;
+  manager_name?: string;
   org_name?: string;
   org_slug?: string;
   active_assignments_count?: number;
+}
+
+interface SessionPayload {
+  token: string;
+  user: User;
+  active_member: OrgMember;
+  memberships: OrgMember[];
+}
+
+export type AuthResult = { ok: true } | { ok: false; error: ApiError };
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  first_name: string;
+  last_name: string;
+  org_name: string;
+  job_title?: string;
 }
 
 interface AuthContextType {
@@ -31,241 +60,193 @@ interface AuthContextType {
   memberships: OrgMember[];
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string, orgId?: string) => Promise<boolean>;
-  register: (payload: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    org_name?: string;
-    job_title?: string;
-  }) => Promise<boolean>;
-  logout: () => void;
-  switchOrganization: (orgId: string) => Promise<void>;
-  hasRole: (roles: string[]) => boolean;
-  switchRole: (role: OrgMember['role']) => void;
-  locale: 'ru' | 'kk' | 'en';
-  setLocale: (loc: 'ru' | 'kk' | 'en') => void;
+  /** Set when the server invalidated the session (expired/revoked); shown on the login page. */
+  sessionNotice: string | null;
+  login: (email: string, password: string, orgId?: string) => Promise<AuthResult>;
+  register: (payload: RegisterPayload) => Promise<AuthResult>;
+  acceptInvitation: (payload: { token: string; password: string; first_name?: string; last_name?: string }) => Promise<AuthResult>;
+  logout: () => Promise<void>;
+  switchOrganization: (orgId: string) => Promise<AuthResult>;
+  /** Demo mode only: signs in as the seed account for `role` (a real server session, not a UI override). */
+  switchDemoRole: (role: Role) => Promise<AuthResult>;
+  can: (capability: Capability) => boolean;
+  /** Changes the UI language and stores it on the user profile when signed in. */
+  changeLocale: (locale: Locale) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { locale, setLocale } = useI18n();
   const [user, setUser] = useState<User | null>(null);
   const [activeMember, setActiveMember] = useState<OrgMember | null>(null);
   const [memberships, setMemberships] = useState<OrgMember[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sessionNotice, setSessionNotice] = useState<string | null>(null);
+  const localeRef = useRef(locale);
+  localeRef.current = locale;
 
   useEffect(() => {
-    const token = localStorage.getItem('iclever_token');
-    if (!token) {
-      setIsLoading(false);
-      return;
-    }
+    api.setLocale(locale);
+  }, [locale]);
 
-    const savedRole = localStorage.getItem('iclever_active_role') as OrgMember['role'] | null;
-
-    api.get<{ user: User; active_member: OrgMember; memberships: OrgMember[] }>('/v1/identity/me')
-      .then((res) => {
-        if (res.success && res.data) {
-          let member = res.data.active_member;
-          let u = res.data.user;
-
-          if (savedRole === 'employee') {
-            u = { id: 'usr-emp-001', email: 'employee@corp.iclever.ai', first_name: 'Марат', last_name: 'Жумабаев', is_active: true };
-            member = { ...member, role: 'employee', user_id: u.id, job_title: 'Go Backend Developer', department_name: 'Инженерия и разработка' };
-          } else if (savedRole === 'manager') {
-            u = { id: 'usr-mgr-002', email: 'manager@corp.iclever.ai', first_name: 'Виктор', last_name: 'Ким', is_active: true };
-            member = { ...member, role: 'manager', user_id: u.id, job_title: 'Engineering Manager', department_name: 'Инженерия и разработка' };
-          }
-
-          setUser(u);
-          setActiveMember(member);
-          setMemberships(res.data.memberships || []);
-          if (res.data.active_member?.organization_id) {
-            localStorage.setItem('iclever_active_org_id', res.data.active_member.organization_id);
-          }
-        } else {
-          localStorage.removeItem('iclever_token');
-          localStorage.removeItem('iclever_active_org_id');
-        }
-      })
-      .finally(() => setIsLoading(false));
-  }, []);
-
-  const login = async (email: string, password: string, orgId?: string): Promise<boolean> => {
-    const res = await api.post<{ token: string; user: User; active_member: OrgMember; memberships: OrgMember[] }>(
-      '/v1/identity/login',
-      { email, password, organization_id: orgId }
-    );
-
-    if (res.success && res.data) {
-      localStorage.setItem('iclever_token', res.data.token);
-      if (res.data.active_member?.organization_id) {
-        localStorage.setItem('iclever_active_org_id', res.data.active_member.organization_id);
-      }
-      if (res.data.active_member?.role) {
-        localStorage.setItem('iclever_active_role', res.data.active_member.role);
-      }
-      setUser(res.data.user);
-      setActiveMember(res.data.active_member);
-      setMemberships(res.data.memberships || []);
-      return true;
-    }
-    return false;
-  };
-
-  const register = async (payload: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    org_name?: string;
-    job_title?: string;
-  }): Promise<boolean> => {
-    const res = await api.post<{ token: string; user: User; active_member: OrgMember; memberships: OrgMember[] }>(
-      '/v1/identity/register',
-      payload
-    );
-
-    if (res.success && res.data) {
-      localStorage.setItem('iclever_token', res.data.token);
-      if (res.data.active_member?.organization_id) {
-        localStorage.setItem('iclever_active_org_id', res.data.active_member.organization_id);
-      }
-      if (res.data.active_member?.role) {
-        localStorage.setItem('iclever_active_role', res.data.active_member.role);
-      }
-      setUser(res.data.user);
-      setActiveMember(res.data.active_member);
-      setMemberships(res.data.memberships || []);
-      return true;
-    }
-    return false;
-  };
-
-  const logout = () => {
-    localStorage.removeItem('iclever_token');
-    localStorage.removeItem('iclever_active_org_id');
-    localStorage.removeItem('iclever_active_role');
+  const clearSession = useCallback(() => {
+    api.setSession(null, null);
     setUser(null);
     setActiveMember(null);
     setMemberships([]);
-    window.location.href = `${import.meta.env.BASE_URL}login`;
-  };
+  }, []);
 
-  const switchOrganization = async (orgId: string) => {
-    const res = await api.post<{ token: string; active_member: OrgMember; memberships: OrgMember[] }>(
-      '/v1/identity/switch-org',
-      { organization_id: orgId }
-    );
-
-    if (res.success && res.data) {
-      localStorage.setItem('iclever_token', res.data.token);
-      localStorage.setItem('iclever_active_org_id', orgId);
-      setActiveMember(res.data.active_member);
-      setMemberships(res.data.memberships || []);
-      window.location.reload();
-    }
-  };
-
-  const [locale, setLocale] = useState<'ru' | 'kk' | 'en'>('ru');
-
-  const switchRole = (role: OrgMember['role']) => {
-    if (!activeMember) return;
-    localStorage.setItem('iclever_active_role', role);
-    
-    let updatedUser = user;
-    let jobTitle = activeMember.job_title;
-    let deptName = activeMember.department_name;
-
-    if (role === 'employee') {
-      updatedUser = {
-        id: 'usr-emp-001',
-        email: 'employee@corp.iclever.ai',
-        first_name: 'Марат',
-        last_name: 'Жумабаев',
-        is_active: true,
-      };
-      jobTitle = 'Go Backend Developer';
-      deptName = 'Инженерия и разработка';
-    } else if (role === 'manager') {
-      updatedUser = {
-        id: 'usr-mgr-002',
-        email: 'manager@corp.iclever.ai',
-        first_name: 'Виктор',
-        last_name: 'Ким',
-        is_active: true,
-      };
-      jobTitle = 'Engineering Manager';
-      deptName = 'Инженерия и разработка';
-    } else if (role === 'trainer') {
-      updatedUser = {
-        id: 'usr-trainer-003',
-        email: 'trainer@corp.iclever.ai',
-        first_name: 'Елена',
-        last_name: 'Воронова',
-        is_active: true,
-      };
-      jobTitle = 'Lead Corporate Trainer';
-      deptName = 'People & HR';
-    } else {
-      updatedUser = {
-        id: 'usr-admin-001',
-        email: 'admin@corp.iclever.ai',
-        first_name: 'Алина',
-        last_name: 'Садыкова',
-        is_active: true,
-      };
-      jobTitle = role === 'org_admin' ? 'HR Lead & Platform Admin' : 'Learning & Development Manager';
-      deptName = 'People & HR';
-    }
-
-    const updatedMember: OrgMember = {
-      ...activeMember,
-      role,
-      user_id: updatedUser.id,
-      job_title: jobTitle,
-      department_name: deptName,
-    };
-
-    setUser(updatedUser);
-    setActiveMember(updatedMember);
-  };
-
-  const hasRole = (roles: string[]): boolean => {
-    if (!activeMember) return false;
-    if (activeMember.role === 'platform_super_admin' || activeMember.role === 'org_admin') return true;
-    return roles.includes(activeMember.role);
-  };
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        activeMember,
-        memberships,
-        isAuthenticated: !!user,
-        isLoading,
-        login,
-        register,
-        logout,
-        switchOrganization,
-        hasRole,
-        switchRole,
-        locale,
-        setLocale,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  /**
+   * Applies the language preference after sign-in. Priority: the user's saved
+   * profile preference → an explicit choice on this device → the organization
+   * default. A browser-detected language never overrides a saved preference.
+   */
+  const applyLocalePreference = useCallback(
+    (u: User, member: OrgMember & { org_default_locale?: string }, orgDefault?: string) => {
+      const saved = normalizeLocale(u.locale);
+      if (saved) {
+        if (saved !== localeRef.current) void setLocale(saved);
+        return;
+      }
+      if (readStoredLocale()) return;
+      const fallback = normalizeLocale(orgDefault ?? member.org_default_locale);
+      if (fallback && fallback !== localeRef.current) void setLocale(fallback, { persist: false });
+    },
+    [setLocale],
   );
+
+  const applySession = useCallback(
+    async (payload: SessionPayload | Omit<SessionPayload, 'token'>, token?: string) => {
+      if (token) api.setSession(token, payload.active_member.organization_id);
+      setUser(payload.user);
+      setActiveMember(payload.active_member);
+      setMemberships(payload.memberships || []);
+      setSessionNotice(null);
+      let orgDefault: string | undefined;
+      if (!normalizeLocale(payload.user.locale) && !readStoredLocale()) {
+        const org = await api.get<{ default_locale: string }>('/corporate/organizations/current');
+        orgDefault = org.data?.default_locale;
+      }
+      applyLocalePreference(payload.user, payload.active_member, orgDefault);
+    },
+    [applyLocalePreference],
+  );
+
+  useEffect(() => {
+    api.onUnauthorized((code) => {
+      clearSession();
+      setSessionNotice(code === 'SESSION_EXPIRED' ? 'session_expired' : 'session_ended');
+    });
+    return () => api.onUnauthorized(null);
+  }, [clearSession]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!api.getToken()) {
+      setIsLoading(false);
+      return;
+    }
+    api
+      .get<Omit<SessionPayload, 'token'>>('/identity/me', { noCache: true })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (res.success && res.data) await applySession(res.data);
+        else clearSession();
+      })
+      .finally(() => !cancelled && setIsLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [applySession, clearSession]);
+
+  const handleSessionResponse = useCallback(
+    async (res: ApiResponse<SessionPayload>): Promise<AuthResult> => {
+      if (res.success && res.data) {
+        await applySession(res.data, res.data.token);
+        return { ok: true };
+      }
+      return { ok: false, error: res.error ?? { code: 'UNKNOWN', message: 'Unknown error' } };
+    },
+    [applySession],
+  );
+
+  const login = useCallback(
+    async (email: string, password: string, orgId?: string) =>
+      handleSessionResponse(await api.post<SessionPayload>('/identity/login', { email: email.trim(), password, organization_id: orgId })),
+    [handleSessionResponse],
+  );
+
+  const register = useCallback(
+    async (payload: RegisterPayload) =>
+      handleSessionResponse(await api.post<SessionPayload>('/identity/register', { ...payload, locale: localeRef.current })),
+    [handleSessionResponse],
+  );
+
+  const acceptInvitation = useCallback(
+    async (payload: { token: string; password: string; first_name?: string; last_name?: string }) =>
+      handleSessionResponse(await api.post<SessionPayload>('/identity/invitations/accept', payload)),
+    [handleSessionResponse],
+  );
+
+  const logout = useCallback(async () => {
+    await api.post('/identity/logout');
+    clearSession();
+    setSessionNotice(null);
+  }, [clearSession]);
+
+  const switchOrganization = useCallback(
+    async (orgId: string) => handleSessionResponse(await api.post<SessionPayload>('/identity/switch-org', { organization_id: orgId })),
+    [handleSessionResponse],
+  );
+
+  const switchDemoRole = useCallback(
+    async (role: Role): Promise<AuthResult> => {
+      const account = DEMO_ACCOUNTS.find((a) => a.role === role);
+      if (!IS_DEMO_MODE || !account) return { ok: false, error: { code: 'FORBIDDEN', message: 'Demo role switching is disabled' } };
+      await api.post('/identity/logout');
+      api.setSession(null, null);
+      return handleSessionResponse(await api.post<SessionPayload>('/identity/login', { email: account.email, password: DEMO_PASSWORD }));
+    },
+    [handleSessionResponse],
+  );
+
+  const changeLocale = useCallback(
+    async (next: Locale) => {
+      await setLocale(next);
+      if (user) {
+        const res = await api.put<User>('/identity/me/preferences', { locale: next });
+        if (res.success && res.data) setUser(res.data);
+      }
+    },
+    [setLocale, user],
+  );
+
+  const value = useMemo<AuthContextType>(
+    () => ({
+      user,
+      activeMember,
+      memberships,
+      isAuthenticated: !!user && !!activeMember,
+      isLoading,
+      sessionNotice,
+      login,
+      register,
+      acceptInvitation,
+      logout,
+      switchOrganization,
+      switchDemoRole,
+      can: (capability) => can(activeMember?.role, capability),
+      changeLocale,
+    }),
+    [user, activeMember, memberships, isLoading, sessionNotice, login, register, acceptInvitation, logout, switchOrganization, switchDemoRole, changeLocale],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };
