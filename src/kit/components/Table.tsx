@@ -8,7 +8,7 @@ export interface Column<T> {
   className?: string;
 }
 
-export interface TableProps<T = any> {
+export interface TableProps<T = unknown> {
   columns?: Column<T>[];
   data?: T[];
   keyExtractor?: (item: T) => string;
@@ -18,7 +18,7 @@ export interface TableProps<T = any> {
   children?: React.ReactNode;
 }
 
-export function Table<T = any>({
+export function Table<T = unknown>({
   columns,
   data,
   keyExtractor,

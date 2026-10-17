@@ -4,6 +4,10 @@
 
 Данный репозиторий представляет собой **автономное frontend-приложение**, независимое от бэкенда и инфраструктуры. Результаты внутреннего аудита и список изменений — в [`AUDIT_REPORT.md`](./AUDIT_REPORT.md).
 
+* 🌍 Рабочий сайт (демо): **https://ksvtmr.github.io/corporate/**
+* 📘 Как вносить изменения с Claude Code, смотреть превью и публиковать: [`WORKFLOW.md`](./WORKFLOW.md)
+* ⚙️ Окружения, CI/CD, откат: [`DEPLOYMENT.md`](./DEPLOYMENT.md)
+
 ---
 
 ## 🚀 Быстрый старт (локальная разработка)
@@ -19,7 +23,7 @@ npm install
 ```bash
 npm run dev
 ```
-Приложение откроется по адресу: **`http://localhost:5173`**
+Приложение откроется по адресу: **`http://localhost:5173`**. Изменения в коде и переводах появляются в браузере сразу (HMR), бэкенд запускать не нужно. Сервер слушает только `localhost`; для доступа с телефона в локальной сети — `npm run dev:lan`.
 
 ### 3. Демо-аккаунты (только в режиме Mock API)
 
@@ -75,13 +79,17 @@ npm run dev
 ## 🧪 Тесты и проверки
 
 ```bash
+npm run lint         # ESLint
 npm run typecheck    # TypeScript
 npm run i18n:check   # полнота переводов ru/kk/en
 npm test             # unit и интеграционные тесты (Vitest)
 npm run build        # production-сборка
 npm run check        # всё перечисленное выше
 npm run test:e2e     # сборка + сквозные сценарии в Chromium (Playwright)
+npm run test:smoke   # проверка развёрнутого сайта (SMOKE_URL=https://…)
 ```
+
+Все проверки автоматически выполняются в GitHub Actions для каждого pull request и перед каждой публикацией (см. [`DEPLOYMENT.md`](./DEPLOYMENT.md)).
 
 Для E2E нужен Chromium для Playwright (`npx playwright install chromium`) или путь к установленному браузеру в `PLAYWRIGHT_CHROMIUM_EXECUTABLE`.
 
@@ -106,24 +114,22 @@ npm run test:e2e     # сборка + сквозные сценарии в Chrom
 │   ├── pages/               # Страницы приложения (lazy chunks)
 │   ├── App.tsx              # Маршрутизация с проверкой прав
 │   └── main.tsx             # Точка входа
-├── e2e/                     # Сквозные сценарии (Playwright)
-├── scripts/check-i18n.mjs   # Проверка полноты переводов
+├── e2e/                     # Сквозные сценарии и smoke-тест развёрнутого сайта (Playwright)
+├── scripts/                 # Проверка переводов, публикация на GitHub Pages
 ├── API_CONTRACTS.md         # Контракты API для бэкенда
-└── AUDIT_REPORT.md          # Отчёт об аудите
+├── AUDIT_REPORT.md          # Отчёт об аудите
+├── DEPLOYMENT.md            # Окружения, CI/CD, откат
+└── WORKFLOW.md              # Инструкция по работе с Claude Code
 ```
 
 ---
 
-## 🐳 Docker
+## 🚢 Публикация
 
-The production image is a static build served by nginx (non-root, port `8080`). On every push to `main`, GitHub Actions builds it and publishes it to `ghcr.io/ksvtmr/corporate`.
+| Окружение | Адрес | Когда обновляется |
+| :--- | :--- | :--- |
+| Локально | `http://localhost:5173` | при сохранении файла |
+| Превью PR | `https://ksvtmr.github.io/corporate/pr-<N>/` | при push в ветку открытого PR в `main`, после успешных проверок |
+| Production | `https://ksvtmr.github.io/corporate/` | после merge в `main`, после успешных проверок |
 
-```bash
-# Run the published image
-docker run -d -p 8080:8080 ghcr.io/ksvtmr/corporate:latest
-
-# Or build and run locally
-docker compose up --build
-```
-
-Open **http://localhost:8080**. `VITE_*` variables are baked in at build time, so to point at a real backend, build with `--build-arg VITE_USE_MOCK=false --build-arg VITE_API_BASE_URL=/api`.
+Откат: GitHub → Actions → **Rollback production** → Run workflow. Docker-образ `ghcr.io/ksvtmr/corporate` публикуется из проверенных коммитов `main` (`docker run -d -p 8080:8080 ghcr.io/ksvtmr/corporate:latest`). Подробности — [`DEPLOYMENT.md`](./DEPLOYMENT.md).

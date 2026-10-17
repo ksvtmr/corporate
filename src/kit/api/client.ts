@@ -1,3 +1,5 @@
+import { storageKey } from '../storage';
+
 export interface ApiError {
   code: string;
   message: string;
@@ -31,8 +33,8 @@ interface CacheEntry<T> {
   expiresAt: number;
 }
 
-export const TOKEN_STORAGE_KEY = 'iclever_token';
-export const ORG_STORAGE_KEY = 'iclever_active_org_id';
+export const TOKEN_STORAGE_KEY = storageKey('iclever_token');
+export const ORG_STORAGE_KEY = storageKey('iclever_active_org_id');
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 function safeStorageGet(key: string): string | null {

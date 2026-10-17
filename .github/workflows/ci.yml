@@ -1,40 +1,52 @@
-name: Frontend CI
+name: CI/CD
+
+# One pipeline, gated end to end:
+#   checks ─► e2e ─┬─► deploy-preview     (pull requests into main)  → https://<owner>.github.io/<repo>/pr-<N>/
+#                  └─► deploy-production  (push/merge to main)       → https://<owner>.github.io/<repo>/
+# Nothing is deployed unless every check before it passed.
 
 on:
   push:
-    branches: [ main, develop, 'feature/*', 'claude/*' ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
+    types: [ opened, synchronize, reopened ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# A newer push to the same PR cancels its older, unfinished run; runs on main
+# are queued instead, so a production publish is never interrupted.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: '20'
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
 
 jobs:
   checks:
-    name: Typecheck, i18n, unit tests and build
+    name: Lint, typecheck, i18n, unit tests, build
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install Dependencies
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Install dependencies (lockfile)
         run: npm ci
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-
+      - name: Lint
+        run: npm run lint
       - name: Typecheck
         run: npm run typecheck
-
       - name: Translation completeness (ru, kk, en)
         run: npm run i18n:check
-
-      - name: Unit and integration tests
+      - name: Unit and integration tests (incl. mock DB schema migrations)
         run: npm test
-
-      - name: Build Application
+      - name: Production build
         run: npm run build
 
   e2e:
@@ -45,10 +57,128 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
       - run: npm ci
       - name: Install Chromium for Playwright
         run: npx playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: ''
       - name: Run E2E scenarios
         run: npm run test:e2e
+
+  deploy-preview:
+    name: Deploy preview
+    needs: [ checks, e2e ]
+    # Fork PRs get no write token, so previews are for branches of this repository.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        # push to the gh-pages branch
+      pull-requests: write   # comment the preview URL
+    concurrency:
+      group: gh-pages-publish   # serialise every write to gh-pages
+      cancel-in-progress: false
+    environment:
+      name: preview
+      url: ${{ steps.site.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Resolve URLs
+        id: site
+        run: |
+          ROOT="${{ vars.PAGES_URL }}"
+          ROOT="${ROOT:-https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${{ github.event.repository.name }}/}"
+          ROOT="${ROOT%/}/"
+          echo "base=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+          echo "url=${ROOT}pr-${{ github.event.pull_request.number }}/" >> "$GITHUB_OUTPUT"
+      - name: Build preview (isolated demo storage)
+        run: npm run build
+        env:
+          VITE_BASE: ${{ steps.site.outputs.base }}pr-${{ github.event.pull_request.number }}/
+          VITE_USE_MOCK: 'true'
+          VITE_DEPLOY_ENV: preview
+          VITE_STORAGE_NAMESPACE: pr-${{ github.event.pull_request.number }}
+          VITE_APP_VERSION: ${{ github.event.pull_request.head.sha }}
+      - name: Publish to gh-pages/pr-${{ github.event.pull_request.number }}
+        run: bash scripts/publish-pages.sh "pr-${{ github.event.pull_request.number }}" "${{ steps.site.outputs.base }}" "Preview PR #${{ github.event.pull_request.number }} @ ${{ github.event.pull_request.head.sha }}"
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: ''
+      - name: Smoke test the preview URL
+        run: node e2e/smoke.mjs
+        env:
+          SMOKE_URL: ${{ steps.site.outputs.url }}
+          SMOKE_EXPECT_VERSION: ${{ github.event.pull_request.head.sha }}
+          SMOKE_EXPECT_ENV: preview
+      - name: Comment the preview URL on the PR
+        uses: actions/github-script@v7
+        env:
+          PREVIEW_URL: ${{ steps.site.outputs.url }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        with:
+          script: |
+            const marker = '<!-- preview-url -->';
+            const body = `${marker}\n🔎 **Preview deployed:** ${process.env.PREVIEW_URL}\n\nCommit \`${process.env.SHA.slice(0, 7)}\` · demo data in the preview is stored separately from production · password for demo accounts: \`Password123!\``;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+            if (existing) await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ owner, repo, issue_number, body });
+
+  deploy-production:
+    name: Deploy production
+    needs: [ checks, e2e ]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: gh-pages-publish
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: ${{ steps.site.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Resolve URLs
+        id: site
+        run: |
+          ROOT="${{ vars.PAGES_URL }}"
+          ROOT="${ROOT:-https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${{ github.event.repository.name }}/}"
+          echo "base=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          echo "url=${ROOT%/}/" >> "$GITHUB_OUTPUT"
+      - name: Build production
+        run: npm run build
+        env:
+          VITE_BASE: ${{ steps.site.outputs.base }}
+          VITE_USE_MOCK: ${{ vars.VITE_USE_MOCK || 'true' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || '/api' }}
+          VITE_DEPLOY_ENV: production
+          VITE_APP_VERSION: ${{ github.sha }}
+      - name: Publish to gh-pages (site root; previews are kept)
+        run: bash scripts/publish-pages.sh "" "${{ steps.site.outputs.base }}" "Production @ ${{ github.sha }}"
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: ''
+      - name: Smoke test the production URL
+        run: node e2e/smoke.mjs
+        env:
+          SMOKE_URL: ${{ steps.site.outputs.url }}
+          SMOKE_EXPECT_VERSION: ${{ github.sha }}
+          SMOKE_EXPECT_ENV: production
+          SMOKE_LOGIN: ${{ (vars.VITE_USE_MOCK || 'true') == 'true' }}

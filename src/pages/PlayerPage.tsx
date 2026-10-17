@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Play, Pause, CheckCircle2, Clock, Award, ChevronLeft, ChevronRight, ArrowRight, Eye, Circle } from 'lucide-react';
 import { api, Badge, Button, ErrorState, LocalizedText, Modal, Spinner, useApiErrorMessage, useAuth, useI18n, useToast, ApiError } from '@iclever/frontend-kit';
+import { storageKey } from '@/kit/storage';
 
 interface Block {
   id: string;
@@ -60,7 +61,7 @@ interface Draft {
   answers: Record<string, number | string>;
 }
 
-const draftKey = (userId: string, testId: string) => `iclever_attempt:${userId}:${testId}`;
+const draftKey = (userId: string, testId: string) => storageKey(`iclever_attempt:${userId}:${testId}`);
 
 function loadDraft(key: string): Draft | null {
   try {
@@ -111,7 +112,6 @@ export const PlayerPage: React.FC = () => {
   const [result, setResult] = useState<AttemptResult | null>(null);
   const submittingRef = useRef(false);
 
-  const testBlock = data?.track.blocks.find((b) => b.type === 'test');
   const key = user && test ? draftKey(user.id, test.id) : null;
 
   const load = useCallback(async () => {
