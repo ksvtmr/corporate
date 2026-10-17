@@ -1,0 +1,80 @@
+name: Rollback production
+
+# Restores an earlier production release from the gh-pages history without
+# rebuilding (the files are exactly what was verified and served before).
+# Run it from Actions → "Rollback production" → Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Commit SHA of main to restore (full or short). Empty = the release before the current one.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  rollback:
+    name: Restore production release
+    runs-on: ubuntu-latest
+    concurrency:
+      group: gh-pages-publish
+      cancel-in-progress: false
+    environment:
+      name: production
+      url: ${{ steps.site.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+      - name: Resolve URLs
+        id: site
+        run: |
+          ROOT="${{ vars.PAGES_URL }}"
+          ROOT="${ROOT:-https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${{ github.event.repository.name }}/}"
+          echo "base=/${{ github.event.repository.name }}/" >> "$GITHUB_OUTPUT"
+          echo "url=${ROOT%/}/" >> "$GITHUB_OUTPUT"
+      - name: Find the release in gh-pages history
+        id: find
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Explicit depth: the checkout is shallow, and a shallow gh-pages would hide older releases.
+          git fetch --quiet --depth=200 origin gh-pages
+          # Production publishes are commits titled "Production @ <sha>" (rollbacks: "Rollback production to <sha>").
+          releases=$(git log --format='%H %s' FETCH_HEAD | grep -E ' (Production @|Rollback production to) [0-9a-f]{40}$' || true)
+          if [ -z "$releases" ]; then echo "::error::no production releases found on gh-pages"; exit 1; fi
+          if [ -n "$VERSION" ]; then
+            line=$(echo "$releases" | grep -E " [0-9a-f]*$" | awk -v v="$VERSION" 'index($NF, v) == 1' | head -1)
+          else
+            current=$(echo "$releases" | head -1 | awk '{print $NF}')
+            line=$(echo "$releases" | awk -v c="$current" '$NF != c' | head -1)
+          fi
+          if [ -z "$line" ]; then echo "::error::release '${VERSION:-previous}' not found. Available:"; echo "$releases" | awk '{print $NF}' | head -20; exit 1; fi
+          echo "pages_commit=$(echo "$line" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+          echo "version=$(echo "$line" | awk '{print $NF}')" >> "$GITHUB_OUTPUT"
+          echo "Restoring release $(echo "$line" | awk '{print $NF}') from gh-pages commit $(echo "$line" | awk '{print $1}')"
+      - name: Extract the release files
+        run: |
+          mkdir -p "$RUNNER_TEMP/release"
+          git archive "${{ steps.find.outputs.pages_commit }}" | tar -x -C "$RUNNER_TEMP/release"
+          rm -rf "$RUNNER_TEMP"/release/pr-*
+      - name: Publish
+        run: bash scripts/publish-pages.sh "" "${{ steps.site.outputs.base }}" "Rollback production to ${{ steps.find.outputs.version }}" "$RUNNER_TEMP/release"
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Smoke test the production URL
+        run: node e2e/smoke.mjs
+        env:
+          SMOKE_URL: ${{ steps.site.outputs.url }}
+          SMOKE_EXPECT_VERSION: ${{ steps.find.outputs.version }}
+          SMOKE_EXPECT_ENV: production
+          SMOKE_LOGIN: ${{ (vars.VITE_USE_MOCK || 'true') == 'true' }}
