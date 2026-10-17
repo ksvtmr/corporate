@@ -1,0 +1,24 @@
+{
+  "platform_super_admin": "Супер-администратор платформы",
+  "org_admin": "Администратор организации",
+  "hr_manager": "HR / менеджер обучения",
+  "manager": "Руководитель подразделения",
+  "trainer": "Корпоративный тренер / методист",
+  "employee": "Сотрудник",
+  "unknown": "Не определена",
+  "short": {
+    "platform_super_admin": "Супер-админ",
+    "org_admin": "Админ",
+    "hr_manager": "HR",
+    "manager": "Руководитель",
+    "trainer": "Тренер",
+    "employee": "Сотрудник"
+  },
+  "status": {
+    "invited": "Приглашён",
+    "active": "Активен",
+    "suspended": "Приостановлен",
+    "inactive": "Неактивен",
+    "archived": "В архиве"
+  }
+}

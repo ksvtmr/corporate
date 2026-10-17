@@ -1,0 +1,58 @@
+{
+  "title": "Learning cohorts",
+  "subtitle": "Groups of employees learning together by intake, hire date or department",
+  "searchPlaceholder": "Search by name or description…",
+  "empty": "No cohorts yet",
+  "allDepartments": "All departments",
+  "noTrack": "No track assigned",
+  "trackRemoved": "Track removed",
+  "sort": {
+    "members": "By members",
+    "newest": "Newest first",
+    "name": "By name (A–Z)"
+  },
+  "card": {
+    "track": "Active track:",
+    "members": "Members"
+  },
+  "actions": {
+    "create": "Create cohort",
+    "changeTrack": "Change track"
+  },
+  "detail": {
+    "title": "Cohort: {{name}}",
+    "track": "Assigned program",
+    "created": "Created {{date}}",
+    "members": "Members ({{count}})",
+    "addMember": "Add member",
+    "chooseEmployee": "Choose an employee from the directory…",
+    "noMembers": "This cohort has no members yet",
+    "unknownMember": "Employee unavailable",
+    "remove": "Remove {{name}} from the cohort"
+  },
+  "removeMember": {
+    "title": "Remove from cohort?",
+    "message": "{{name}} will no longer receive this cohort's assignments. Personal learning results are kept."
+  },
+  "changeTrack": {
+    "title": "Change learning track",
+    "label": "Published track"
+  },
+  "form": {
+    "title": "New cohort",
+    "name": "Cohort name",
+    "namePlaceholder": "e.g. Engineering onboarding, October",
+    "nameRequired": "Enter a cohort name.",
+    "description": "Description",
+    "descriptionPlaceholder": "Audience or focus of the cohort",
+    "department": "Department",
+    "track": "Learning program",
+    "membersHint": "Add members after creating the cohort — from the employee directory."
+  },
+  "toast": {
+    "created": "Cohort “{{name}}” created",
+    "memberAdded": "{{name}} added to the cohort",
+    "memberRemoved": "Member removed from the cohort",
+    "trackChanged": "Cohort track set to: {{track}}"
+  }
+}

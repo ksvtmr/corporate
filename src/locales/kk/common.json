@@ -1,0 +1,110 @@
+{
+  "documentTitle": "iClever Corporate — корпоративтік оқыту және онбординг",
+  "actions": {
+    "close": "Жабу",
+    "dismiss": "Хабарламаны жасыру",
+    "cancel": "Болдырмау",
+    "confirm": "Растау",
+    "retry": "Қайталау",
+    "back": "Артқа",
+    "next": "Әрі қарай",
+    "save": "Сақтау",
+    "saveChanges": "Өзгерістерді сақтау",
+    "create": "Құру",
+    "add": "Қосу",
+    "delete": "Жою",
+    "remove": "Алып тастау",
+    "edit": "Өзгерту",
+    "details": "Толығырақ",
+    "download": "Жүктеп алу",
+    "search": "Іздеу",
+    "copy": "Көшіру",
+    "copied": "Көшірілді",
+    "publish": "Жариялау",
+    "clearSelection": "Таңдауды алып тастау",
+    "previous": "Алдыңғы",
+    "nextPage": "Келесі"
+  },
+  "states": {
+    "loading": "Жүктелуде…",
+    "loadingData": "Деректер жүктелуде…",
+    "loadingModule": "Модуль жүктелуде…",
+    "noData": "Көрсететін деректер жоқ",
+    "empty": "Ештеңе табылмады",
+    "emptyFiltered": "Берілген сүзгілер бойынша ештеңе табылмады",
+    "saving": "Сақталуда…",
+    "unsavedChanges": "Сақталмаған өзгерістер бар",
+    "leaveConfirm": "Сақталмаған өзгерістер бар. Беттен шығасыз ба?"
+  },
+  "filters": {
+    "allStatuses": "Барлық мәртебелер",
+    "allTypes": "Барлық түрлер",
+    "allDepartments": "Барлық бөлімшелер",
+    "allRoles": "Барлық рөлдер",
+    "sortBy": "Сұрыптау",
+    "status": "Мәртебе",
+    "type": "Түрі"
+  },
+  "pagination": {
+    "summary": "{{total}} ішінен {{from}}–{{to}}",
+    "page": "{{pages}} беттің {{page}}-беті",
+    "label": "Беттер бойынша навигация"
+  },
+  "demoData": {
+    "label": "Демо-деректер",
+    "tooltip": "Демо-нұсқаның көрнекі көрсеткіштері: ұйымның нақты деректерінен есептелмейді",
+    "localNotice": "Бұл модульдегі өзгерістер тек осы браузерде сақталады (контент серверінсіз демо-режим)."
+  },
+  "language": {
+    "label": "Интерфейс тілі",
+    "translations": "Аудармалар",
+    "missingTranslation": "Аударма толтырылмаған",
+    "missingFor": "Аударма жоқ: {{locales}}",
+    "shownIn": "Аударма жоқ — {{language}} тіліндегі нұсқа көрсетілді"
+  },
+  "upload": {
+    "label": "Оқу материалын немесе регламентті жүктеңіз",
+    "description": "PDF, DOCX, PPTX, TXT, Markdown, MP4 — {{max}} МБ дейін",
+    "unsupported": "Файл пішімі қолдау көрсетілмейді: {{ext}}. Рұқсат етілгендер: {{allowed}}",
+    "tooLarge": "Файл өлшемі {{max}} МБ шегінен асады"
+  },
+  "units": {
+    "mb": "{{value}} МБ",
+    "gb": "{{value}} ГБ",
+    "minutes": {
+      "one": "{{count}} минут",
+      "other": "{{count}} минут"
+    },
+    "minutesShort": "{{count}} мин",
+    "hoursShort": "{{count}} сағ",
+    "people": {
+      "one": "{{count}} адам",
+      "other": "{{count}} адам"
+    },
+    "employees": {
+      "one": "{{count}} қызметкер",
+      "other": "{{count}} қызметкер"
+    },
+    "points": {
+      "one": "{{count}} балл",
+      "other": "{{count}} балл"
+    },
+    "questions": {
+      "one": "{{count}} сұрақ",
+      "other": "{{count}} сұрақ"
+    },
+    "blocks": {
+      "one": "{{count}} блок",
+      "other": "{{count}} блок"
+    },
+    "days": {
+      "one": "{{count}} күн",
+      "other": "{{count}} күн"
+    }
+  },
+  "yes": "Иә",
+  "no": "Жоқ",
+  "on": "Қосулы",
+  "off": "Өшірулі",
+  "notSet": "Көрсетілмеген"
+}

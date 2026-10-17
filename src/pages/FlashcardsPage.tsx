@@ -1,312 +1,252 @@
-import React, { useState } from 'react';
-import {
-  BookOpen,
-  RotateCw,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  Sparkles,
-  ChevronRight,
-  RotateCcw,
-  Plus,
-  Shuffle,
-  Filter
-} from 'lucide-react';
-import { Button, Card, Badge, Modal, Input } from '@iclever/frontend-kit';
+import React, { useEffect, useMemo, useState } from 'react';
+import { RotateCw, CheckCircle2, XCircle, Clock, RotateCcw, Plus, Shuffle, Filter, Trash2 } from 'lucide-react';
+import { Button, ConfirmDialog, EmptyState, Input, Modal, useI18n, useToast } from '@iclever/frontend-kit';
+import { daysFromNow, DemoFlashcard, FLASHCARD_TOPICS, FlashcardTopic, todayIso } from '../demo/fixtures';
+import { useFlashcardsState } from '../demo/useDemoData';
 
-interface Flashcard {
-  id: string;
-  front: string;
-  back: string;
-  topic: string;
-  next_review: string;
-  repetitions: number;
+/** Simplified Leitner scheduling: "know" doubles the interval, "repeat" resets it to one day. */
+export function scheduleCard(card: DemoFlashcard, known: boolean, today = new Date()): DemoFlashcard {
+  const interval = known ? Math.min(Math.max(card.interval_days * 2, 1), 180) : 1;
+  return { ...card, interval_days: interval, repetitions: known ? card.repetitions + 1 : card.repetitions, due_date: daysFromNow(interval, today) };
 }
 
-const initialCards: Flashcard[] = [
-  {
-    id: 'fc-1',
-    topic: 'Архитектура Go',
-    front: 'Что такое Transactional Outbox?',
-    back: 'Шаблон проектирования, при котором исходящие сообщения сохраняются в специальную таблицу БД внутри той же ACID-транзакции, что и бизнес-данные, а отдельный процесс ретранслирует их в шину.',
-    next_review: 'Сегодня',
-    repetitions: 3,
-  },
-  {
-    id: 'fc-2',
-    topic: 'Информационная безопасность',
-    front: 'В чем ключевое отличие 2FA от MFA?',
-    back: '2FA использует ровно два независимых фактора проверки (например, пароль + TOTP), тогда как MFA может включать три и более (биометрия, геолокация, смарт-карты).',
-    next_review: 'Завтра',
-    repetitions: 5,
-  },
-  {
-    id: 'fc-3',
-    topic: 'Инженерия',
-    front: 'Какова цель идемпотентного консьюмера в NATS?',
-    back: 'Гарантировать, что повторная обработка одного и того же события при сбоях сети не приведет к дублированию побочных эффектов в базе данных.',
-    next_review: 'Через 3 дня',
-    repetitions: 1,
-  },
-  {
-    id: 'fc-4',
-    topic: 'Архитектура Go',
-    front: 'Почему доменный слой не должен зависеть от ORM и SQL драйверов?',
-    back: 'Для обеспечения чистоты бизнес-правил, независимости от инфраструктуры и возможности изолированного модульного тестирования без поднятия СУБД.',
-    next_review: 'Сегодня',
-    repetitions: 2,
-  },
-  {
-    id: 'fc-5',
-    topic: 'Информационная безопасность',
-    front: 'Что делать сотруднику при подозрении на фишинговое письмо?',
-    back: 'Не переходить по ссылкам, не открывать вложения, немедленно нажать кнопку «Сообщить о фишинге» и оповестить дежурного инженера ИБ.',
-    next_review: 'Сегодня',
-    repetitions: 4,
-  },
-];
-
 export const FlashcardsPage: React.FC = () => {
-  const [cards, setCards] = useState<Flashcard[]>(initialCards);
-  const [selectedTopic, setSelectedTopic] = useState('all');
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const { t, lt, locale, formatDate } = useI18n();
+  const toast = useToast();
+  const [cards, setCards] = useFlashcardsState();
+  const [topic, setTopic] = useState<'all' | FlashcardTopic>('all');
+  const [includeNotDue, setIncludeNotDue] = useState(false);
+  const [queue, setQueue] = useState<string[]>([]);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [reviewedCount, setReviewedCount] = useState(0);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
-  // New Card Modal
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [newTopic, setNewTopic] = useState('Архитектура Go');
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [newTopic, setNewTopic] = useState<FlashcardTopic>('general');
   const [newFront, setNewFront] = useState('');
   const [newBack, setNewBack] = useState('');
 
-  const filteredCards = cards.filter((c) => selectedTopic === 'all' || c.topic === selectedTopic);
-  const currentCard = filteredCards[currentIndex] || filteredCards[0];
+  const today = todayIso();
+  const eligible = useMemo(
+    () => cards.filter((c) => (topic === 'all' || c.topic === topic) && (includeNotDue || c.due_date <= today)),
+    [cards, topic, includeNotDue, today],
+  );
 
-  const handleNext = () => {
+  const startSession = (shuffle = false) => {
+    const ids = eligible.map((c) => c.id);
+    if (shuffle) {
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [ids[i], ids[j]] = [ids[j], ids[i]];
+      }
+    }
+    setQueue(ids);
     setIsFlipped(false);
-    if (currentIndex < filteredCards.length - 1) {
-      setCurrentIndex(currentIndex + 1);
+    setReviewedCount(0);
+  };
+
+  // Rebuild the session when filters change.
+  useEffect(() => {
+    startSession(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topic, includeNotDue]);
+
+  const current = cards.find((c) => c.id === queue[0]);
+  const sessionTotal = reviewedCount + queue.length;
+
+  const answer = (known: boolean) => {
+    if (!current) return;
+    setCards((prev) => prev.map((c) => (c.id === current.id ? scheduleCard(c, known) : c)));
+    setIsFlipped(false);
+    if (known) {
+      setQueue((q) => q.slice(1));
+      setReviewedCount((n) => n + 1);
     } else {
-      setCompleted(true);
+      // "Repeat" puts the card back at the end of today's session.
+      setQueue((q) => (q.length > 1 ? [...q.slice(1), q[0]] : q));
     }
   };
 
-  const handleRestart = () => {
-    setCurrentIndex(0);
-    setIsFlipped(false);
-    setCompleted(false);
-  };
-
-  const handleShuffle = () => {
-    const shuffled = [...cards].sort(() => Math.random() - 0.5);
-    setCards(shuffled);
-    handleRestart();
-  };
-
-  const handleCreateCard = (e: React.FormEvent) => {
+  const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newFront.trim() || !newBack.trim()) return;
-
-    const card: Flashcard = {
-      id: 'fc-' + Date.now(),
+    const card: DemoFlashcard = {
+      id: `fc-${Date.now().toString(36)}`,
       topic: newTopic,
-      front: newFront.trim(),
-      back: newBack.trim(),
-      next_review: 'Сегодня',
+      front: { [locale]: newFront.trim() },
+      back: { [locale]: newBack.trim() },
+      due_date: today,
       repetitions: 0,
+      interval_days: 0,
     };
-
-    setCards([card, ...cards]);
-    setIsCreateModalOpen(false);
+    setCards((prev) => [card, ...prev]);
+    setQueue((q) => (topic === 'all' || topic === newTopic ? [card.id, ...q] : q));
+    setIsCreateOpen(false);
     setNewFront('');
     setNewBack('');
-    handleRestart();
+    toast.success(t('flashcards.toast.created'));
   };
+
+  const dueLabel = (c: DemoFlashcard) => (c.due_date <= today ? t('flashcards.due.today') : c.due_date === daysFromNow(1) ? t('flashcards.due.tomorrow') : formatDate(c.due_date, 'monthDay'));
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-slate-900">Интервальное повторение (Flashcards)</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Закрепление регламентов, терминов и стандартов с алгоритмом интервальных повторений
-          </p>
+          <h1 className="text-xl font-bold text-slate-900">{t('flashcards.title')}</h1>
+          <p className="text-xs text-slate-500 mt-0.5">{t('flashcards.subtitle')}</p>
         </div>
-
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={handleShuffle} title="Перемешать порядок карточек">
-            <Shuffle className="w-3.5 h-3.5 mr-1" />
-            Перемешать
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => startSession(true)} disabled={eligible.length < 2}>
+            <Shuffle className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+            {t('flashcards.actions.shuffle')}
           </Button>
-          <Button variant="primary" size="sm" onClick={() => setIsCreateModalOpen(true)}>
-            <Plus className="w-3.5 h-3.5 mr-1" />
-            Добавить
+          <Button variant="primary" size="sm" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+            {t('flashcards.actions.add')}
           </Button>
         </div>
       </div>
 
-      {/* Filter and stats controls */}
-      <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200 text-xs">
-        <div className="flex items-center space-x-2">
-          <Filter className="w-3.5 h-3.5 text-slate-400" />
-          <span className="text-slate-500 font-medium">Тема:</span>
-          <select
-            value={selectedTopic}
-            onChange={(e) => {
-              setSelectedTopic(e.target.value);
-              setCurrentIndex(0);
-              setIsFlipped(false);
-              setCompleted(false);
-            }}
-            className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500"
-          >
-            <option value="all">Все темы ({cards.length})</option>
-            <option value="Архитектура Go">Архитектура Go</option>
-            <option value="Информационная безопасность">Информационная безопасность</option>
-            <option value="Инженерия">Инженерия</option>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-3 rounded-xl border border-slate-200 text-xs">
+        <div className="flex items-center gap-2">
+          <Filter className="w-3.5 h-3.5 text-slate-400" aria-hidden="true" />
+          <label htmlFor="fc-topic" className="text-slate-500 font-medium">
+            {t('flashcards.topic')}
+          </label>
+          <select id="fc-topic" value={topic} onChange={(e) => setTopic(e.target.value as typeof topic)} className="rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500">
+            <option value="all">{t('flashcards.allTopics', { count: cards.length })}</option>
+            {FLASHCARD_TOPICS.map((tp) => (
+              <option key={tp} value={tp}>
+                {t(`flashcards.topics.${tp}`)} ({cards.filter((c) => c.topic === tp).length})
+              </option>
+            ))}
           </select>
         </div>
-
-        <div className="text-slate-500">
-          Карточек в колоде: <strong className="text-indigo-600">{filteredCards.length}</strong>
-        </div>
+        <label className="flex items-center gap-1.5 text-slate-600 cursor-pointer">
+          <input type="checkbox" checked={includeNotDue} onChange={(e) => setIncludeNotDue(e.target.checked)} />
+          {t('flashcards.includeNotDue')}
+        </label>
       </div>
 
-      {!completed && currentCard ? (
+      {cards.length === 0 ? (
+        <EmptyState title={t('flashcards.empty')} action={<Button size="sm" onClick={() => setIsCreateOpen(true)}>{t('flashcards.actions.add')}</Button>} />
+      ) : current ? (
         <div className="space-y-6">
-          {/* Progress bar */}
           <div className="flex items-center justify-between text-xs text-slate-500">
-            <span>Карточка {currentIndex + 1} из {filteredCards.length}</span>
-            <span className="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">
-              {currentCard.topic}
-            </span>
+            <span>{t('flashcards.progress', { current: reviewedCount + 1, total: sessionTotal })}</span>
+            <span className="font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded">{t(`flashcards.topics.${current.topic}`)}</span>
           </div>
-          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-            <div
-              className="bg-indigo-600 h-full transition-all duration-300"
-              style={{ width: `${((currentIndex + 1) / filteredCards.length) * 100}%` }}
-            />
+          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden" role="progressbar" aria-valuenow={reviewedCount} aria-valuemin={0} aria-valuemax={sessionTotal}>
+            <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${(reviewedCount / Math.max(sessionTotal, 1)) * 100}%` }} />
           </div>
 
-          {/* Interactive Card with smooth flip */}
-          <div
-            onClick={() => setIsFlipped(!isFlipped)}
-            className="min-h-[280px] bg-white rounded-2xl border border-slate-200 shadow-md p-8 flex flex-col justify-between cursor-pointer hover:border-indigo-400 hover:shadow-lg transition-all text-center select-none group"
+          <button
+            type="button"
+            onClick={() => setIsFlipped((f) => !f)}
+            aria-label={isFlipped ? t('flashcards.showQuestion') : t('flashcards.showAnswer')}
+            className="w-full min-h-[280px] bg-white rounded-2xl border border-slate-200 shadow-md p-6 sm:p-8 flex flex-col justify-between hover:border-indigo-400 hover:shadow-lg transition-all text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
-            <div className="flex items-center justify-between text-[11px] text-slate-400">
-              <span>Повторений: {currentCard.repetitions}</span>
-              <span className="flex items-center text-indigo-600 font-medium group-hover:underline">
-                <RotateCw className="w-3.5 h-3.5 mr-1" />
-                Нажмите для переворота
+            <div className="flex items-center justify-between text-[11px] text-slate-400 w-full">
+              <span>{t('flashcards.repetitions', { count: current.repetitions })}</span>
+              <span className="flex items-center text-indigo-600 font-medium">
+                <RotateCw className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                {t('flashcards.flipHint')}
               </span>
             </div>
-
-            <div className="py-6">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">
-                {isFlipped ? 'ОТВЕТ / РЕГЛАМЕНТ' : 'ВОПРОС ДЛЯ ПОВТОРЕНИЯ'}
-              </span>
-              <p className={`font-semibold leading-relaxed transition-colors ${isFlipped ? 'text-sm text-indigo-950 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100' : 'text-base text-slate-900'}`}>
-                {isFlipped ? currentCard.back : currentCard.front}
-              </p>
+            <div className="py-6" aria-live="polite">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-3">{isFlipped ? t('flashcards.answerLabel') : t('flashcards.questionLabel')}</span>
+              <p className={`font-semibold leading-relaxed ${isFlipped ? 'text-sm text-indigo-950 bg-indigo-50/50 p-4 rounded-xl border border-indigo-100' : 'text-base text-slate-900'}`}>{lt(isFlipped ? current.back : current.front)}</p>
             </div>
-
-            <div className="text-[11px] text-slate-400 flex items-center justify-center space-x-1">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>Следующее повторение: <strong className="text-slate-600">{currentCard.next_review}</strong></span>
+            <div className="text-[11px] text-slate-400 flex items-center justify-center gap-1">
+              <Clock className="w-3.5 h-3.5" aria-hidden="true" />
+              <span>{t('flashcards.nextReview', { date: dueLabel(current) })}</span>
             </div>
+          </button>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button variant="outline" className="w-full sm:w-44 border-red-200 text-red-700 hover:bg-red-50" onClick={() => answer(false)}>
+              <XCircle className="w-4 h-4 mr-1.5 text-red-500" aria-hidden="true" />
+              {t('flashcards.actions.repeat')}
+            </Button>
+            <Button variant="primary" className="w-full sm:w-44 bg-emerald-600 hover:bg-emerald-700" onClick={() => answer(true)}>
+              <CheckCircle2 className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              {t('flashcards.actions.know')}
+            </Button>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center justify-center space-x-4">
-            <Button
-              variant="outline"
-              className="w-40 border-red-200 text-red-700 hover:bg-red-50"
-              onClick={handleNext}
-            >
-              <XCircle className="w-4 h-4 mr-1.5 text-red-500" />
-              Повторить снова
-            </Button>
-            <Button
-              variant="primary"
-              className="w-40 bg-emerald-600 hover:bg-emerald-700"
-              onClick={handleNext}
-            >
-              <CheckCircle2 className="w-4 h-4 mr-1.5" />
-              Знаю ответ
-            </Button>
+          <div className="text-center">
+            <button type="button" onClick={() => setDeleteId(current.id)} className="text-[11px] text-slate-400 hover:text-red-600 inline-flex items-center gap-1">
+              <Trash2 className="w-3 h-3" aria-hidden="true" />
+              {t('flashcards.actions.delete')}
+            </button>
           </div>
         </div>
       ) : (
         <div className="p-8 bg-white rounded-2xl border border-slate-200 text-center space-y-4 shadow-sm">
           <div className="w-14 h-14 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-7 h-7" />
+            <CheckCircle2 className="w-7 h-7" aria-hidden="true" />
           </div>
-          <h2 className="text-lg font-bold text-slate-900">Колода успешно пройдена!</h2>
-          <p className="text-xs text-slate-500">Все выбранные карточки интервального повторения на сегодня изучены.</p>
-          <div className="pt-2 flex justify-center space-x-2">
-            <Button variant="secondary" onClick={handleRestart}>
-              <RotateCcw className="w-4 h-4 mr-1.5" />
-              Пройти снова
-            </Button>
-            <Button variant="primary" onClick={handleShuffle}>
-              <Shuffle className="w-4 h-4 mr-1.5" />
-              Перемешать и повторить
+          <h2 className="text-lg font-bold text-slate-900">{reviewedCount > 0 ? t('flashcards.done.title') : t('flashcards.done.nothingDue')}</h2>
+          <p className="text-xs text-slate-500">{reviewedCount > 0 ? t('flashcards.done.text', { count: reviewedCount }) : t('flashcards.done.nothingDueText')}</p>
+          <div className="pt-2 flex flex-wrap justify-center gap-2">
+            {!includeNotDue && (
+              <Button variant="secondary" onClick={() => setIncludeNotDue(true)}>
+                <RotateCcw className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                {t('flashcards.done.studyAhead')}
+              </Button>
+            )}
+            <Button variant="primary" onClick={() => startSession(true)} disabled={eligible.length === 0}>
+              <Shuffle className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              {t('flashcards.done.again')}
             </Button>
           </div>
         </div>
       )}
 
-      {/* Modal: Create Card */}
-      {isCreateModalOpen && (
-        <Modal
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          title="Новая карточка Flashcards"
-          subtitle="Создайте термин или правило для интервального повторения"
-        >
-          <form onSubmit={handleCreateCard} className="space-y-4 py-2 text-xs">
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Тема / Раздел</label>
-              <select
-                value={newTopic}
-                onChange={(e) => setNewTopic(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 p-2 text-xs"
-              >
-                <option value="Архитектура Go">Архитектура Go</option>
-                <option value="Информационная безопасность">Информационная безопасность</option>
-                <option value="Инженерия">Инженерия</option>
-                <option value="Общие регламенты">Общие регламенты</option>
-              </select>
-            </div>
+      <ConfirmDialog
+        isOpen={!!deleteId}
+        title={t('flashcards.delete.title')}
+        message={t('flashcards.delete.message')}
+        confirmLabel={t('common.actions.delete')}
+        onConfirm={() => {
+          setCards((prev) => prev.filter((c) => c.id !== deleteId));
+          setQueue((q) => q.filter((id) => id !== deleteId));
+          setDeleteId(null);
+        }}
+        onCancel={() => setDeleteId(null)}
+      />
 
-            <Input
-              label="Вопрос или термин (Лицевая сторона)"
-              placeholder="Например: Что такое Outbox паттерн?"
-              value={newFront}
-              onChange={(e) => setNewFront(e.target.value)}
-              required
-            />
-
-            <div>
-              <label className="block text-slate-700 font-medium mb-1">Правильный ответ / Определение (Оборот)</label>
-              <textarea
-                rows={3}
-                placeholder="Например: Паттерн надежной доставки сообщений..."
-                value={newBack}
-                onChange={(e) => setNewBack(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-indigo-500"
-                required
-              />
-            </div>
-
-            <div className="flex justify-end space-x-2 pt-2">
-              <Button variant="secondary" type="button" onClick={() => setIsCreateModalOpen(false)}>Отмена</Button>
-              <Button variant="primary" type="submit">Создать карточку</Button>
-            </div>
-          </form>
-        </Modal>
-      )}
+      <Modal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} title={t('flashcards.form.title')} subtitle={t('flashcards.form.subtitle')}>
+        <form onSubmit={handleCreate} className="space-y-4 py-2 text-xs">
+          <div>
+            <label htmlFor="fc-new-topic" className="block text-slate-700 font-medium mb-1">
+              {t('flashcards.form.topic')}
+            </label>
+            <select id="fc-new-topic" value={newTopic} onChange={(e) => setNewTopic(e.target.value as FlashcardTopic)} className="w-full rounded-lg border border-slate-300 p-2 text-xs bg-white">
+              {FLASHCARD_TOPICS.map((tp) => (
+                <option key={tp} value={tp}>
+                  {t(`flashcards.topics.${tp}`)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Input label={t('flashcards.form.front')} placeholder={t('flashcards.form.frontPlaceholder')} value={newFront} onChange={(e) => setNewFront(e.target.value)} maxLength={300} required />
+          <div>
+            <label htmlFor="fc-back" className="block text-slate-700 font-medium mb-1">
+              {t('flashcards.form.back')}
+            </label>
+            <textarea id="fc-back" rows={3} maxLength={1000} placeholder={t('flashcards.form.backPlaceholder')} value={newBack} onChange={(e) => setNewBack(e.target.value)} className="w-full rounded-lg border border-slate-300 p-2 text-xs focus:ring-2 focus:ring-indigo-500" required />
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="secondary" type="button" onClick={() => setIsCreateOpen(false)}>
+              {t('common.actions.cancel')}
+            </Button>
+            <Button variant="primary" type="submit" disabled={!newFront.trim() || !newBack.trim()}>
+              {t('flashcards.form.submit')}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

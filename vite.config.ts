@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -20,5 +21,10 @@ export default defineConfig({
     port: 5173,
     host: '0.0.0.0',
     allowedHosts: true,
+  },
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.{ts,tsx}'],
+    restoreMocks: true,
   },
 });

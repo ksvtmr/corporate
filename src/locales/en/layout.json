@@ -1,0 +1,41 @@
+{
+  "skipToContent": "Skip to content",
+  "sidebar": "Sidebar",
+  "mainNav": "Main navigation",
+  "organizations": "Organizations",
+  "logout": "Sign out",
+  "openMenu": "Open menu",
+  "closeMenu": "Close menu",
+  "demoSwitcher": {
+    "label": "Demo: switch role",
+    "signInAs": "Sign in as {{name}} ({{email}})"
+  },
+  "nav": {
+    "myDashboard": "My dashboard",
+    "player": "Course player",
+    "myTests": "Tests & assessments",
+    "flashcards": "Flashcards",
+    "aiChat": "Corporate AI chat",
+    "teamDashboard": "Team dashboard",
+    "myTeam": "My team",
+    "teamAssignments": "Progress & deadlines",
+    "teamAnalytics": "Team analytics",
+    "knowledgeAi": "Knowledge base & AI",
+    "trainerDashboard": "Trainer dashboard",
+    "knowledgeBase": "Knowledge base",
+    "tracks": "Learning tracks",
+    "assessments": "Question bank & tests",
+    "dashboard": "Dashboard",
+    "employees": "Employees",
+    "departments": "Org structure",
+    "materials": "Materials",
+    "cohorts": "Cohorts",
+    "assignments": "Assignments",
+    "assessmentsBank": "Tests & question bank",
+    "reviews": "Answer reviews (AI)",
+    "integrity": "Integrity events",
+    "analytics": "HR analytics",
+    "reports": "Report exports",
+    "settings": "Settings"
+  }
+}

@@ -1,39 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { UserPlus, Upload, Download, Check, Copy, AlertTriangle, FileSpreadsheet, ArrowUpDown, ArrowUp, ArrowDown, CheckSquare, Mail } from 'lucide-react';
 import {
-  UserPlus,
-  Upload,
-  Download,
-  Search,
-  Check,
-  Copy,
-  AlertTriangle,
-  FileSpreadsheet,
-  ArrowUpDown,
-  ArrowUp,
-  ArrowDown,
-  User,
-  CheckSquare,
-  GraduationCap,
-  ShieldCheck,
-  Building2,
-  Mail,
-  Calendar,
-  Briefcase
-} from 'lucide-react';
-
-import { Card, Table, Badge, Button, Input, Modal, api, useAuth, useDebounce } from '@iclever/frontend-kit';
+  api,
+  ASSIGNABLE_ROLES,
+  Badge,
+  Button,
+  canAssignRole,
+  Card,
+  ConfirmDialog,
+  ErrorState,
+  Input,
+  LocalizedText,
+  Modal,
+  saveBlob,
+  Table,
+  useApiErrorMessage,
+  useAuth,
+  useDebounce,
+  useI18n,
+  useToast,
+  ApiError,
+  Role,
+  MemberStatus,
+} from '@iclever/frontend-kit';
 
 interface Member {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
-  role: string;
-  status: 'invited' | 'active' | 'suspended' | 'inactive' | 'archived';
+  role: Role;
+  status: MemberStatus;
   job_title?: string;
   department_id?: string;
   department_name?: string;
+  department_name_i18n?: LocalizedText;
   manager_name?: string;
   start_date?: string;
   active_assignments_count: number;
@@ -42,14 +44,8 @@ interface Member {
 interface Department {
   id: string;
   name: string;
+  name_i18n?: LocalizedText;
   code?: string;
-}
-
-interface RowReport {
-  row_number: number;
-  email: string;
-  status: string;
-  error?: string;
 }
 
 interface ImportReport {
@@ -57,878 +53,722 @@ interface ImportReport {
   created_count: number;
   updated_count: number;
   failed_count: number;
-  row_results: RowReport[];
+  truncated?: boolean;
+  row_results: Array<{ row_number: number; email: string; status: 'created' | 'updated' | 'failed'; error_code?: string }>;
 }
 
+type SortField = 'name' | 'job_title' | 'department_name' | 'role' | 'status' | 'active_assignments_count';
+type BulkAction = 'assign_department' | 'change_role' | 'deactivate';
+
+const PAGE_SIZE = 20;
+const STATUS_VARIANT: Record<MemberStatus, 'success' | 'warning' | 'danger' | 'neutral'> = {
+  active: 'success',
+  invited: 'warning',
+  suspended: 'danger',
+  inactive: 'neutral',
+  archived: 'neutral',
+};
+const CSV_TEMPLATE_HEADER = 'first_name,last_name,email,role,job_title,department_code';
+
 export const EmployeesPage: React.FC = () => {
-  const { activeMember } = useAuth();
+  const { t, lt, formatDate, formatNumber } = useI18n();
+  const { activeMember, can } = useAuth();
+  const toast = useToast();
+  const errorMessage = useApiErrorMessage();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isManager = activeMember?.role === 'manager';
+  const canManage = can('members.manage');
+  const actorRole = activeMember?.role ?? 'employee';
 
   const [members, setMembers] = useState<Member[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [totalItems, setTotalItems] = useState(0);
+  const [meta, setMeta] = useState({ total_items: 0, total_pages: 1 });
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [selectedDept, setSelectedDept] = useState(isManager ? 'dept-eng-01' : '');
-  const [onlyMyTeam, setOnlyMyTeam] = useState(isManager);
-  const [isLoading, setIsLoading] = useState(false);
-
-  // Sorting state
-  const [sortField, setSortField] = useState<string>('name');
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || '');
+  const [deptFilter, setDeptFilter] = useState(() => searchParams.get('department_id') || '');
+  const [sortField, setSortField] = useState<SortField>('name');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<ApiError | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
-  // Detail Modal
   const [detailMember, setDetailMember] = useState<Member | null>(null);
-  const [actionFeedback, setActionFeedback] = useState<string | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<{ member: Member; status: MemberStatus } | null>(null);
+  const [isMutating, setIsMutating] = useState(false);
 
-  // Selection for bulk actions
   const [selectedIDs, setSelectedIDs] = useState<string[]>([]);
-  const [isBulkActionModalOpen, setIsBulkActionModalOpen] = useState(false);
-  const [bulkActionType, setBulkActionType] = useState<'assign_department' | 'change_role' | 'deactivate'>('assign_department');
-  const [bulkTargetValue, setBulkTargetValue] = useState('');
+  const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
+  const [bulkTarget, setBulkTarget] = useState('');
 
-  // Modals state
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-
-  // Invite Form
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState('employee');
-  const [inviteDept, setInviteDept] = useState(isManager ? 'dept-eng-01' : '');
+  const [inviteRole, setInviteRole] = useState<Role>('employee');
+  const [inviteDept, setInviteDept] = useState('');
   const [inviteType, setInviteType] = useState<'email' | 'link'>('email');
-  const [generatedInviteLink, setGeneratedInviteLink] = useState('');
+  const [inviteResult, setInviteResult] = useState<{ link: string; email: string; type: 'email' | 'link' } | null>(null);
+  const [inviteError, setInviteError] = useState('');
   const [isCopied, setIsCopied] = useState(false);
 
-  // Import State
+  const [isImportOpen, setIsImportOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const debouncedSearch = useDebounce(search, 300);
-  const latestRequestIdRef = React.useRef(0);
+  const latestRequestIdRef = useRef(0);
 
-  // Reset page to 1 when filters or search change
+  const deptName = useCallback((m: { department_name?: string; department_name_i18n?: LocalizedText }) => lt(m.department_name_i18n ?? m.department_name) || '—', [lt]);
+
   useEffect(() => {
     setPage(1);
-  }, [debouncedSearch, roleFilter, statusFilter, selectedDept, onlyMyTeam]);
+    setSelectedIDs([]);
+  }, [debouncedSearch, roleFilter, statusFilter, deptFilter, sortField, sortDir]);
 
-  // Fetch departments (cached via ApiClient)
   useEffect(() => {
-    api.get<Department[]>('/corporate/departments').then((res) => {
-      if (res.success && res.data) {
-        setDepartments(res.data);
-      }
-    });
+    api.get<Department[]>('/corporate/departments').then((res) => res.success && res.data && setDepartments(res.data));
   }, []);
 
-  // Fetch members with race-condition guard
-  const fetchMembers = (searchTerm: string = debouncedSearch) => {
+  useEffect(() => {
     const requestId = ++latestRequestIdRef.current;
     setIsLoading(true);
-    const params = new URLSearchParams({
-      page: page.toString(),
-      limit: '50',
-    });
-    if (searchTerm) params.set('search', searchTerm);
+    const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE), sort: sortField, dir: sortDir });
+    if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim());
     if (roleFilter) params.set('role', roleFilter);
     if (statusFilter) params.set('status', statusFilter);
-    if (selectedDept) params.set('department_id', selectedDept);
+    if (deptFilter) params.set('department_id', deptFilter);
 
-    api.get<Member[]>(`/corporate/members?${params.toString()}`)
-      .then((res) => {
-        if (requestId !== latestRequestIdRef.current) {
-          // Newer query already triggered; ignore stale response
-          return;
-        }
-        if (res.success && res.data) {
-          let list = res.data;
-          if (onlyMyTeam) {
-            list = list.filter((m) => (m.department_name || '').includes('Инженер') || m.department_id === 'dept-eng-01');
-          }
-          setMembers(list);
-          setTotalItems(res.meta?.total_items || list.length);
-        } else {
-          // Demo fallback
-          setMembers([
-            { id: 'mem-002', first_name: 'Марат', last_name: 'Жумабаев', email: 'employee@corp.iclever.ai', role: 'employee', status: 'active', job_title: 'Go Backend Developer', department_name: 'Инженерия и разработка', department_id: 'dept-eng-01', active_assignments_count: 3 },
-            { id: 'mem-003', first_name: 'Виктор', last_name: 'Ким', email: 'manager@corp.iclever.ai', role: 'manager', status: 'active', job_title: 'Engineering Manager', department_name: 'Инженерия и разработка', department_id: 'dept-eng-01', active_assignments_count: 0 },
-            { id: 'mem-007', first_name: 'Александр', last_name: 'Петров', email: 'alex.p@fintech.kz', role: 'employee', status: 'active', job_title: 'DevOps Engineer', department_name: 'Инженерия и разработка', department_id: 'dept-eng-01', active_assignments_count: 1 },
-            { id: 'mem-008', first_name: 'Нурлан', last_name: 'Сейтов', email: 'nurlan.s@fintech.kz', role: 'employee', status: 'active', job_title: 'Frontend Developer', department_name: 'Инженерия и разработка', department_id: 'dept-eng-01', active_assignments_count: 2 },
-            { id: 'mem-009', first_name: 'Дина', last_name: 'Сабитова', email: 'dina.s@fintech.kz', role: 'employee', status: 'active', job_title: 'QA Automation Engineer', department_name: 'Инженерия и разработка', department_id: 'dept-eng-01', active_assignments_count: 1 },
-            { id: 'mem-010', first_name: 'Алексей', last_name: 'Смирнов', email: 'alexey.s@fintech.kz', role: 'employee', status: 'active', job_title: 'Backend Intern', department_name: 'Инженерия и разработка', department_id: 'dept-eng-01', active_assignments_count: 1 },
-            { id: 'mem-001', first_name: 'Алина', last_name: 'Садыкова', email: 'admin@corp.iclever.ai', role: 'org_admin', status: 'active', job_title: 'HR Lead & Admin', department_name: 'People & HR', department_id: 'dept-hr-03', active_assignments_count: 2 },
-          ]);
-          setTotalItems(7);
-        }
-      })
-      .finally(() => {
-        if (requestId === latestRequestIdRef.current) {
-          setIsLoading(false);
-        }
-      });
+    api.get<Member[]>(`/corporate/members?${params.toString()}`, { noCache: reloadToken > 0 }).then((res) => {
+      // Ignore responses that arrive after a newer query was issued.
+      if (requestId !== latestRequestIdRef.current) return;
+      setIsLoading(false);
+      if (res.success && res.data) {
+        setMembers(res.data);
+        setMeta({ total_items: res.meta?.total_items ?? res.data.length, total_pages: res.meta?.total_pages ?? 1 });
+        setLoadError(null);
+      } else {
+        setMembers([]);
+        setLoadError(res.error ?? null);
+      }
+    });
+  }, [page, debouncedSearch, roleFilter, statusFilter, deptFilter, sortField, sortDir, reloadToken]);
+
+  const refresh = () => setReloadToken((n) => n + 1);
+
+  const assignableRoles = useMemo(() => ASSIGNABLE_ROLES.filter((r) => canAssignRole(actorRole, r)), [actorRole]);
+
+  // ---- actions --------------------------------------------------------------
+
+  const resetInvite = () => {
+    setIsInviteOpen(false);
+    setInviteEmail('');
+    setInviteRole('employee');
+    setInviteDept('');
+    setInviteType('email');
+    setInviteResult(null);
+    setInviteError('');
   };
 
-  useEffect(() => {
-    fetchMembers(debouncedSearch);
-  }, [page, debouncedSearch, roleFilter, statusFilter, selectedDept, onlyMyTeam]);
-
-  // Handle invite
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await api.post<{ invite_link?: string }>('/corporate/members/invite', {
-      email: inviteEmail,
+    if (isMutating) return;
+    setInviteError('');
+    setIsMutating(true);
+    const res = await api.post<{ invite_link: string }>('/corporate/members/invite', {
+      email: inviteEmail.trim(),
       role: inviteRole,
       department_id: inviteDept || undefined,
       invite_type: inviteType,
     });
-
-    if (res.success) {
-      if (inviteType === 'link' && res.data?.invite_link) {
-        setGeneratedInviteLink(res.data.invite_link);
-      } else {
-        setIsInviteModalOpen(false);
-        setInviteEmail('');
-        fetchMembers();
-        setActionFeedback(`Приглашение отправлено на ${inviteEmail}`);
-        setTimeout(() => setActionFeedback(null), 3000);
-      }
+    setIsMutating(false);
+    if (res.success && res.data) {
+      setInviteResult({ link: res.data.invite_link, email: inviteEmail.trim(), type: inviteType });
+      refresh();
     } else {
-      alert(res.error?.message || 'Ошибка отправки приглашения');
+      setInviteError(errorMessage(res.error));
     }
   };
 
-  // Handle CSV import
   const handleImportSubmit = async () => {
-    if (!importFile) return;
+    if (!importFile || isImporting) return;
     setIsImporting(true);
     setImportReport(null);
-
-    const formData = new FormData();
-    formData.append('file', importFile);
-
-    const token = localStorage.getItem('iclever_token');
-    const orgId = localStorage.getItem('iclever_active_org_id');
-
-    try {
-      const response = await fetch('/api/v1/corporate/members/import', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'X-Organization-ID': orgId || '',
-        },
-        body: formData,
-      });
-
-      const json = await response.json();
-      if (json.success && json.data) {
-        setImportReport(json.data);
-        fetchMembers();
-      } else {
-        alert(json.error?.message || 'Ошибка импорта файла');
-      }
-    } catch {
-      alert('Ошибка соединения при импорте');
-    } finally {
-      setIsImporting(false);
+    const form = new FormData();
+    form.append('file', importFile);
+    const res = await api.upload<ImportReport>('/corporate/members/import', form);
+    setIsImporting(false);
+    if (res.success && res.data) {
+      setImportReport(res.data);
+      refresh();
+    } else {
+      toast.error(errorMessage(res.error));
     }
   };
 
-  // Download template
   const downloadTemplate = () => {
-    const csvContent = "first_name,last_name,email,role,job_title,department_code,manager_email\nИван,Иванов,ivan@company.com,employee,Разработчик,ENG,lead@company.com\n";
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', 'employees_template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const example = `${CSV_TEMPLATE_HEADER}\n${t('employees.import.templateExample')}\n`;
+    saveBlob(new Blob(['﻿' + example], { type: 'text/csv;charset=utf-8' }), 'employees_template.csv');
   };
 
-  // Export real CSV
-  const handleExportCsv = () => {
-    const headers = ['ID', 'Имя', 'Фамилия', 'Email', 'Роль', 'Статус', 'Должность', 'Подразделение', 'Активных заданий'];
-    const rows = sortedMembers.map((m) => [
-      m.id,
-      `"${m.first_name}"`,
-      `"${m.last_name}"`,
-      m.email,
-      m.role,
-      m.status,
-      `"${m.job_title || ''}"`,
-      `"${m.department_name || ''}"`,
-      m.active_assignments_count
-    ].join(','));
-
-    const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `employees_${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    setActionFeedback('Файл employees.csv успешно сформирован и загружен!');
-    setTimeout(() => setActionFeedback(null), 3000);
-  };
-
-  // Execute bulk action
-  const handleBulkAction = async () => {
-    if (selectedIDs.length === 0) return;
-    const res = await api.post('/corporate/members/bulk', {
-      action: bulkActionType,
-      member_ids: selectedIDs,
-      target_id: bulkActionType === 'assign_department' ? bulkTargetValue : undefined,
-      new_role: bulkActionType === 'change_role' ? bulkTargetValue : undefined,
-    });
-
-    if (res.success) {
-      const count = selectedIDs.length;
-      setSelectedIDs([]);
-      setIsBulkActionModalOpen(false);
-      fetchMembers();
-      setActionFeedback(`Действие успешно применено к ${count} сотрудникам!`);
-      setTimeout(() => setActionFeedback(null), 3000);
+  const handleExport = async () => {
+    setIsExporting(true);
+    const res = await api.download('/corporate/members/export', `employees_${new Date().toISOString().slice(0, 10)}.csv`);
+    setIsExporting(false);
+    if (res.success && res.data) {
+      saveBlob(res.data.blob, res.data.filename);
+      toast.success(t('employees.export.success', { file: res.data.filename }));
     } else {
-      alert(res.error?.message || 'Ошибка выполнения действия');
+      toast.error(errorMessage(res.error));
     }
   };
 
-  // Toggle Member Status from detail modal
-  const handleToggleStatus = (member: Member) => {
-    const newStatus = member.status === 'active' ? 'suspended' : 'active';
-    setMembers(members.map((m) => m.id === member.id ? { ...m, status: newStatus } : m));
-    setDetailMember({ ...member, status: newStatus });
-    setActionFeedback(`Статус сотрудника ${member.first_name} изменен на ${newStatus}`);
-    setTimeout(() => setActionFeedback(null), 3000);
+  const handleBulk = async () => {
+    if (!bulkAction || selectedIDs.length === 0 || isMutating) return;
+    if (bulkAction !== 'deactivate' && !bulkTarget) return;
+    setIsMutating(true);
+    const res = await api.post<{ affected_rows: number }>('/corporate/members/bulk', {
+      action: bulkAction,
+      member_ids: selectedIDs,
+      target_id: bulkAction === 'assign_department' ? bulkTarget : undefined,
+      new_role: bulkAction === 'change_role' ? bulkTarget : undefined,
+    });
+    setIsMutating(false);
+    if (res.success) {
+      toast.success(t('employees.bulk.success', { count: res.data?.affected_rows ?? 0 }));
+      setSelectedIDs([]);
+      setBulkAction(null);
+      setBulkTarget('');
+      refresh();
+    } else {
+      toast.error(errorMessage(res.error));
+    }
   };
 
-  // Sort handler
-  const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+  const handleStatusChange = async () => {
+    if (!pendingStatus || isMutating) return;
+    setIsMutating(true);
+    const { member, status } = pendingStatus;
+    const res = status === 'archived' ? await api.delete<Member>(`/corporate/members/${member.id}`) : await api.patch<Member>(`/corporate/members/${member.id}`, { status });
+    setIsMutating(false);
+    setPendingStatus(null);
+    if (res.success && res.data) {
+      toast.success(t(`employees.status.changed.${status}`, { name: `${member.first_name} ${member.last_name}`.trim() || member.email }));
+      setDetailMember(status === 'archived' ? null : res.data);
+      refresh();
     } else {
+      toast.error(errorMessage(res.error));
+    }
+  };
+
+  const handleResendInvite = async (member: Member) => {
+    setIsMutating(true);
+    const res = await api.post<{ invite_link: string }>('/corporate/members/invite/resend', { member_id: member.id });
+    setIsMutating(false);
+    if (res.success && res.data) {
+      await navigator.clipboard?.writeText(res.data.invite_link).catch(() => undefined);
+      toast.success(t('employees.invite.resent', { email: member.email }));
+    } else {
+      toast.error(errorMessage(res.error));
+    }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
       setSortField(field);
       setSortDir('asc');
     }
   };
 
-  // Sorted members
-  const sortedMembers = [...members].sort((a, b) => {
-    let valA: any = a[sortField as keyof Member] ?? '';
-    let valB: any = b[sortField as keyof Member] ?? '';
+  // ---- rendering ------------------------------------------------------------
 
-    if (sortField === 'name') {
-      valA = `${a.first_name} ${a.last_name}`;
-      valB = `${b.first_name} ${b.last_name}`;
-    }
-
-    if (typeof valA === 'string') {
-      return sortDir === 'asc' ? valA.localeCompare(valB, 'ru') : valB.localeCompare(valA, 'ru');
-    }
-    return sortDir === 'asc' ? valA - valB : valB - valA;
-  });
-
-  const getSortIcon = (field: string) => {
-    if (sortField !== field) return <ArrowUpDown className="w-3 h-3 text-slate-300 ml-1 inline" />;
-    return sortDir === 'asc'
-      ? <ArrowUp className="w-3 h-3 text-indigo-600 ml-1 inline font-bold" />
-      : <ArrowDown className="w-3 h-3 text-indigo-600 ml-1 inline font-bold" />;
+  const sortHeader = (field: SortField, label: string) => {
+    const active = sortField === field;
+    const Icon = !active ? ArrowUpDown : sortDir === 'asc' ? ArrowUp : ArrowDown;
+    return (
+      <button
+        type="button"
+        onClick={() => handleSort(field)}
+        className="inline-flex items-center uppercase hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded"
+        aria-label={t('employees.table.sortBy', { column: label })}
+        aria-sort={active ? (sortDir === 'asc' ? 'ascending' : 'descending') : undefined}
+      >
+        <span>{label}</span>
+        <Icon className={`w-3 h-3 ml-1 ${active ? 'text-indigo-600' : 'text-slate-300'}`} aria-hidden="true" />
+      </button>
+    );
   };
 
-  // Table columns
+  const displayName = (m: Member) => `${m.first_name} ${m.last_name}`.trim() || t('employees.pendingName');
+  const allOnPageSelected = members.length > 0 && members.every((m) => selectedIDs.includes(m.id));
+
   const columns = [
-    {
-      key: 'select',
-      header: '',
-      className: 'w-10 text-center',
-      render: (item: Member) => (
-        <input
-          type="checkbox"
-          checked={selectedIDs.includes(item.id)}
-          onChange={(e) => {
-            e.stopPropagation();
-            if (e.target.checked) {
-              setSelectedIDs([...selectedIDs, item.id]);
-            } else {
-              setSelectedIDs(selectedIDs.filter((id) => id !== item.id));
-            }
-          }}
-          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
-        />
-      ),
-    },
+    ...(canManage
+      ? [
+          {
+            key: 'select',
+            header: (
+              <input
+                type="checkbox"
+                aria-label={t('employees.table.selectPage')}
+                checked={allOnPageSelected}
+                onChange={(e) =>
+                  setSelectedIDs((prev) => (e.target.checked ? Array.from(new Set([...prev, ...members.map((m) => m.id)])) : prev.filter((id) => !members.some((m) => m.id === id))))
+                }
+                className="rounded border-slate-300 text-indigo-600 h-4 w-4"
+              />
+            ),
+            className: 'w-10 text-center',
+            render: (item: Member) => (
+              <input
+                type="checkbox"
+                aria-label={t('employees.table.select', { name: displayName(item) })}
+                checked={selectedIDs.includes(item.id)}
+                onChange={(e) => setSelectedIDs((prev) => (e.target.checked ? [...prev, item.id] : prev.filter((id) => id !== item.id)))}
+                className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+              />
+            ),
+          },
+        ]
+      : []),
     {
       key: 'name',
-      header: (
-        <div onClick={() => handleSort('name')} className="cursor-pointer select-none flex items-center hover:text-indigo-600">
-          <span>Сотрудник</span>
-          {getSortIcon('name')}
-        </div>
-      ),
+      header: sortHeader('name', t('employees.table.employee')),
       render: (item: Member) => (
-        <div className="cursor-pointer" onClick={() => setDetailMember(item)}>
-          <div className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors">
-            {item.first_name} {item.last_name}
-          </div>
-          <div className="text-xs text-slate-500">{item.email}</div>
-        </div>
+        <button type="button" className="text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 rounded" onClick={() => setDetailMember(item)}>
+          <div className="font-semibold text-slate-900 hover:text-indigo-600 transition-colors">{displayName(item)}</div>
+          <div className="text-xs text-slate-500 break-all">{item.email}</div>
+        </button>
       ),
     },
-    {
-      key: 'job_title',
-      header: (
-        <div onClick={() => handleSort('job_title')} className="cursor-pointer select-none flex items-center hover:text-indigo-600">
-          <span>Должность</span>
-          {getSortIcon('job_title')}
-        </div>
-      ),
-      render: (item: Member) => (
-        <span className="text-xs text-slate-700 cursor-pointer" onClick={() => setDetailMember(item)}>
-          {item.job_title || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'department',
-      header: (
-        <div onClick={() => handleSort('department_name')} className="cursor-pointer select-none flex items-center hover:text-indigo-600">
-          <span>Подразделение</span>
-          {getSortIcon('department_name')}
-        </div>
-      ),
-      render: (item: Member) => (
-        <span className="text-xs font-medium text-slate-700 cursor-pointer" onClick={() => setDetailMember(item)}>
-          {item.department_name || '—'}
-        </span>
-      ),
-    },
-    {
-      key: 'role',
-      header: (
-        <div onClick={() => handleSort('role')} className="cursor-pointer select-none flex items-center hover:text-indigo-600">
-          <span>Роль</span>
-          {getSortIcon('role')}
-        </div>
-      ),
-      render: (item: Member) => (
-        <span className="text-xs font-mono uppercase text-slate-600 cursor-pointer" onClick={() => setDetailMember(item)}>
-          {item.role}
-        </span>
-      ),
-    },
+    { key: 'job_title', header: sortHeader('job_title', t('employees.table.jobTitle')), render: (item: Member) => <span className="text-xs text-slate-700">{item.job_title || '—'}</span> },
+    { key: 'department', header: sortHeader('department_name', t('employees.table.department')), render: (item: Member) => <span className="text-xs font-medium text-slate-700">{deptName(item)}</span> },
+    { key: 'role', header: sortHeader('role', t('employees.table.role')), render: (item: Member) => <span className="text-xs text-slate-600">{t(`roles.${item.role}`)}</span> },
     {
       key: 'status',
-      header: (
-        <div onClick={() => handleSort('status')} className="cursor-pointer select-none flex items-center hover:text-indigo-600">
-          <span>Статус</span>
-          {getSortIcon('status')}
-        </div>
-      ),
-      render: (item: Member) => {
-        const variants = {
-          active: 'success' as const,
-          invited: 'warning' as const,
-          suspended: 'danger' as const,
-          inactive: 'neutral' as const,
-          archived: 'neutral' as const,
-        };
-        return (
-          <div className="cursor-pointer" onClick={() => setDetailMember(item)}>
-            <Badge variant={variants[item.status] || 'neutral'}>{item.status}</Badge>
-          </div>
-        );
-      },
+      header: sortHeader('status', t('employees.table.status')),
+      render: (item: Member) => <Badge variant={STATUS_VARIANT[item.status] || 'neutral'}>{t(`roles.status.${item.status}`)}</Badge>,
     },
     {
       key: 'assignments',
-      header: (
-        <div onClick={() => handleSort('active_assignments_count')} className="cursor-pointer select-none flex items-center hover:text-indigo-600">
-          <span>Курсы в процессе</span>
-          {getSortIcon('active_assignments_count')}
-        </div>
-      ),
-      render: (item: Member) => (
-        <span className="text-xs font-semibold text-slate-700 cursor-pointer" onClick={() => setDetailMember(item)}>
-          {item.active_assignments_count} шт.
-        </span>
-      ),
+      header: sortHeader('active_assignments_count', t('employees.table.activeCourses')),
+      render: (item: Member) => <span className="text-xs font-semibold text-slate-700">{formatNumber(item.active_assignments_count)}</span>,
     },
   ];
 
+  const from = meta.total_items === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, meta.total_items);
+  const selectClass = 'text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none';
+
   return (
     <div className="space-y-6">
-      {actionFeedback && (
-        <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-sm animate-fadeIn">
-          <span className="flex items-center">
-            <Check className="w-4 h-4 mr-2 text-emerald-600" />
-            {actionFeedback}
-          </span>
-          <button onClick={() => setActionFeedback(null)}>✕</button>
-        </div>
-      )}
-
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            {isManager ? 'Команда инженеров' : 'Сотрудники'}
-          </h1>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{isManager ? t('employees.titleManager') : t('employees.title')}</h1>
           <p className="text-sm text-slate-500 mt-1">
             {isManager
-              ? `Инженерный состав команды под руководством Виктора Кима (${sortedMembers.length} чел.)`
-              : `Управление кадровым составом, ролями, инвайтами и массовыми операциями (${totalItems} чел.)`}
+              ? t('employees.subtitleManager', { department: deptName(activeMember ?? {}), count: meta.total_items })
+              : t('employees.subtitle', { count: meta.total_items })}
           </p>
         </div>
-        <div className="flex items-center space-x-2">
-          {isManager && (
-            <button
-              onClick={() => setOnlyMyTeam(!onlyMyTeam)}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition ${
-                onlyMyTeam ? 'bg-indigo-50 border-indigo-300 text-indigo-700' : 'bg-white border-slate-300 text-slate-700'
-              }`}
-            >
-              {onlyMyTeam ? '✓ Только моя команда' : 'Все сотрудники'}
-            </button>
-          )}
-
-          <Button variant="outline" size="sm" onClick={handleExportCsv}>
-            <Download className="w-4 h-4 mr-1.5" />
-            Экспорт CSV
-          </Button>
-          {!isManager && (
-            <Button variant="outline" size="sm" onClick={() => setIsImportModalOpen(true)}>
-              <Upload className="w-4 h-4 mr-1.5" />
-              Импорт
+        <div className="flex flex-wrap items-center gap-2">
+          {can('members.export') && (
+            <Button variant="outline" size="sm" onClick={handleExport} isLoading={isExporting}>
+              <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
+              {t('employees.actions.export')}
             </Button>
           )}
-          <Button variant="primary" size="sm" onClick={() => setIsInviteModalOpen(true)}>
-            <UserPlus className="w-4 h-4 mr-1.5" />
-            Пригласить
-          </Button>
+          {canManage && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setIsImportOpen(true)}>
+                <Upload className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                {t('employees.actions.import')}
+              </Button>
+              <Button variant="primary" size="sm" onClick={() => setIsInviteOpen(true)}>
+                <UserPlus className="w-4 h-4 mr-1.5" aria-hidden="true" />
+                {t('employees.actions.invite')}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Bulk Action Banner */}
-      {selectedIDs.length > 0 && (
-        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center space-x-2 text-sm text-indigo-900 font-medium">
-            <span>Выбрано сотрудников: {selectedIDs.length}</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setBulkActionType('assign_department');
-                setIsBulkActionModalOpen(true);
-              }}
-            >
-              Назначить отдел
+      {canManage && selectedIDs.length > 0 && (
+        <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <span className="text-sm text-indigo-900 font-medium">{t('employees.bulk.selected', { count: selectedIDs.length })}</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setBulkAction('assign_department')}>
+              {t('employees.bulk.assignDepartment')}
             </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => {
-                setBulkActionType('change_role');
-                setIsBulkActionModalOpen(true);
-              }}
-            >
-              Сменить роль
+            <Button variant="secondary" size="sm" onClick={() => setBulkAction('change_role')}>
+              {t('employees.bulk.changeRole')}
             </Button>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={() => {
-                setBulkActionType('deactivate');
-                setIsBulkActionModalOpen(true);
-              }}
-            >
-              Деактивировать
+            <Button variant="danger" size="sm" onClick={() => setBulkAction('deactivate')}>
+              {t('employees.bulk.deactivate')}
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setSelectedIDs([])}>
-              Снять выбор
+              {t('common.actions.clearSelection')}
             </Button>
           </div>
         </div>
       )}
 
-      {/* Filters & Sorting Bar */}
       <Card>
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3 mb-4">
-          <div className="w-full md:max-w-xs">
-            <Input
-              placeholder="Поиск по имени, email, должности..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4">
+          <div className="w-full lg:max-w-xs">
+            <Input placeholder={t('employees.filters.searchPlaceholder')} aria-label={t('common.actions.search')} value={search} onChange={(e) => setSearch(e.target.value)} />
           </div>
-
-          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end text-xs">
-            {/* Sort selector dropdown */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <select
-              value={`${sortField}_${sortDir}`}
+              aria-label={t('common.filters.sortBy')}
+              value={`${sortField}:${sortDir}`}
               onChange={(e) => {
-                const [f, d] = e.target.value.split('_');
-                setSortField(f);
+                const [f, d] = e.target.value.split(':');
+                setSortField(f as SortField);
                 setSortDir(d as 'asc' | 'desc');
               }}
-              className="text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700 font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+              className={`${selectClass} font-medium`}
             >
-              <option value="name_asc">Сортировка: Имя (А — Я)</option>
-              <option value="name_desc">Сортировка: Имя (Я — А)</option>
-              <option value="active_assignments_count_desc">Курсы в процессе (по убыванию)</option>
-              <option value="active_assignments_count_asc">Курсы в процессе (по возрастанию)</option>
-              <option value="status_asc">По статусу</option>
-              <option value="job_title_asc">По должности</option>
+              <option value="name:asc">{t('employees.sort.nameAsc')}</option>
+              <option value="name:desc">{t('employees.sort.nameDesc')}</option>
+              <option value="active_assignments_count:desc">{t('employees.sort.coursesDesc')}</option>
+              <option value="active_assignments_count:asc">{t('employees.sort.coursesAsc')}</option>
+              <option value="status:asc">{t('employees.sort.status')}</option>
+              <option value="job_title:asc">{t('employees.sort.jobTitle')}</option>
             </select>
-
             {!isManager && (
-              <select
-                value={selectedDept}
-                onChange={(e) => setSelectedDept(e.target.value)}
-                className="text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-              >
-                <option value="">Все отделы</option>
+              <select aria-label={t('employees.table.department')} value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className={selectClass}>
+                <option value="">{t('common.filters.allDepartments')}</option>
                 {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>
+                    {lt(d.name_i18n ?? d.name)}
+                  </option>
                 ))}
               </select>
             )}
-
-            <select
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-              className="text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="">Все роли</option>
-              <option value="org_admin">Org Admin</option>
-              <option value="hr_manager">HR Manager</option>
-              <option value="manager">Manager</option>
-              <option value="trainer">Trainer</option>
-              <option value="employee">Employee</option>
+            <select aria-label={t('employees.table.role')} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className={selectClass}>
+              <option value="">{t('common.filters.allRoles')}</option>
+              {ASSIGNABLE_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {t(`roles.${r}`)}
+                </option>
+              ))}
             </select>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="text-xs rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-700 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-            >
-              <option value="">Все статусы</option>
-              <option value="active">Active</option>
-              <option value="invited">Invited</option>
-              <option value="suspended">Suspended</option>
-              <option value="inactive">Inactive</option>
+            <select aria-label={t('employees.table.status')} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className={selectClass}>
+              <option value="">{t('employees.filters.allCurrent')}</option>
+              {(['active', 'invited', 'suspended', 'inactive', 'archived'] as const).map((s) => (
+                <option key={s} value={s}>
+                  {t(`roles.status.${s}`)}
+                </option>
+              ))}
             </select>
           </div>
         </div>
 
-        <Table
-          columns={columns}
-          data={sortedMembers}
-          keyExtractor={(item) => item.id}
-          isLoading={isLoading}
-        />
+        {loadError ? (
+          <ErrorState message={errorMessage(loadError, 'errors.loadFailed')} onRetry={refresh} />
+        ) : (
+          <>
+            <Table columns={columns} data={members} keyExtractor={(item) => item.id} isLoading={isLoading} emptyText={t('employees.empty')} />
+            {meta.total_items > 0 && (
+              <nav aria-label={t('common.pagination.label')} className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-3 text-xs text-slate-500">
+                <span>{t('common.pagination.summary', { from, to, total: meta.total_items })}</span>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" disabled={page <= 1 || isLoading} onClick={() => setPage((p) => p - 1)}>
+                    {t('common.actions.previous')}
+                  </Button>
+                  <span>{t('common.pagination.page', { page, pages: meta.total_pages })}</span>
+                  <Button variant="outline" size="sm" disabled={page >= meta.total_pages || isLoading} onClick={() => setPage((p) => p + 1)}>
+                    {t('common.actions.nextPage')}
+                  </Button>
+                </div>
+              </nav>
+            )}
+          </>
+        )}
       </Card>
 
-      {/* Detail Modal: Employee Profile */}
+      {/* Employee profile */}
       {detailMember && (
-        <Modal
-          isOpen={!!detailMember}
-          onClose={() => setDetailMember(null)}
-          title={`Карточка сотрудника: ${detailMember.first_name} ${detailMember.last_name}`}
-          size="md"
-        >
+        <Modal isOpen onClose={() => setDetailMember(null)} title={t('employees.detail.title', { name: displayName(detailMember) })} size="md">
           <div className="space-y-4 py-2 text-xs text-slate-700">
             <div className="flex items-center space-x-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
-              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow">
-                {detailMember.first_name[0]}{detailMember.last_name[0]}
+              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow shrink-0" aria-hidden="true">
+                {(detailMember.first_name[0] || detailMember.email[0] || '?').toUpperCase()}
+                {(detailMember.last_name[0] || '').toUpperCase()}
               </div>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-slate-900 text-sm">{detailMember.first_name} {detailMember.last_name}</h4>
-                  <Badge variant={detailMember.status === 'active' ? 'success' : detailMember.status === 'invited' ? 'warning' : 'danger'}>
-                    {detailMember.status}
-                  </Badge>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-bold text-slate-900 text-sm truncate">{displayName(detailMember)}</h4>
+                  <Badge variant={STATUS_VARIANT[detailMember.status]}>{t(`roles.status.${detailMember.status}`)}</Badge>
                 </div>
-                <p className="text-slate-500">{detailMember.job_title || 'Должность не указана'} • {detailMember.department_name || 'Подразделение не назначено'}</p>
-                <p className="text-indigo-600 font-medium">{detailMember.email}</p>
+                <p className="text-slate-500">
+                  {detailMember.job_title || t('employees.detail.noJobTitle')} • {detailMember.department_id ? deptName(detailMember) : t('employees.detail.noDepartment')}
+                </p>
+                <p className="text-indigo-600 font-medium break-all">{detailMember.email}</p>
               </div>
             </div>
-
-            <div className="grid grid-cols-2 gap-2 text-[11px]">
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="text-slate-400 block">Роль в системе</span>
-                <span className="font-bold text-slate-800 uppercase font-mono">{detailMember.role}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="text-slate-400 block">Курсов в процессе</span>
-                <span className="font-bold text-indigo-600">{detailMember.active_assignments_count} шт.</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="text-slate-400 block">Дата начала работы</span>
-                <span className="font-medium text-slate-800">{detailMember.start_date || '2025-06-01'}</span>
-              </div>
-              <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
-                <span className="text-slate-400 block">Руководитель</span>
-                <span className="font-medium text-slate-800">{detailMember.manager_name || 'Виктор Ким'}</span>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleToggleStatus(detailMember)}
-              >
-                {detailMember.status === 'active' ? 'Приостановить доступ' : 'Активировать'}
-              </Button>
-
-              <div className="flex space-x-2">
+            <dl className="grid grid-cols-2 gap-2 text-[11px]">
+              {[
+                [t('employees.detail.role'), t(`roles.${detailMember.role}`)],
+                [t('employees.detail.activeCourses'), formatNumber(detailMember.active_assignments_count)],
+                [t('employees.detail.startDate'), formatDate(detailMember.start_date)],
+                [t('employees.detail.manager'), detailMember.manager_name || '—'],
+              ].map(([label, value]) => (
+                <div key={label} className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg">
+                  <dt className="text-slate-400">{label}</dt>
+                  <dd className="font-medium text-slate-800">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              {canManage && detailMember.id !== activeMember?.id ? (
+                <div className="flex flex-wrap gap-2">
+                  {detailMember.status === 'active' && (
+                    <Button variant="outline" size="sm" onClick={() => setPendingStatus({ member: detailMember, status: 'suspended' })}>
+                      {t('employees.detail.suspend')}
+                    </Button>
+                  )}
+                  {(detailMember.status === 'suspended' || detailMember.status === 'inactive') && (
+                    <Button variant="outline" size="sm" onClick={() => setPendingStatus({ member: detailMember, status: 'active' })}>
+                      {t('employees.detail.reactivate')}
+                    </Button>
+                  )}
+                  {detailMember.status === 'invited' && (
+                    <Button variant="outline" size="sm" onClick={() => handleResendInvite(detailMember)} disabled={isMutating}>
+                      <Mail className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                      {t('employees.detail.resendInvite')}
+                    </Button>
+                  )}
+                  {detailMember.status !== 'archived' && (
+                    <Button variant="ghost" size="sm" className="text-red-600" onClick={() => setPendingStatus({ member: detailMember, status: 'archived' })}>
+                      {t('employees.detail.archive')}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2 justify-end">
                 <Button variant="secondary" size="sm" onClick={() => setDetailMember(null)}>
-                  Закрыть
+                  {t('common.actions.close')}
                 </Button>
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => {
-                    const name = encodeURIComponent(`${detailMember.first_name} ${detailMember.last_name}`);
-                    setDetailMember(null);
-                    navigate(`/corporate/assignments?assignee=${name}`);
-                  }}
-                >
-                  <CheckSquare className="w-3.5 h-3.5 mr-1" />
-                  Назначить трек
-                </Button>
+                {can('assignments.manage') && detailMember.status === 'active' && (
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      const id = detailMember.id;
+                      setDetailMember(null);
+                      navigate(`/corporate/assignments?assignee=${encodeURIComponent(id)}`);
+                    }}
+                  >
+                    <CheckSquare className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                    {t('employees.detail.assignTrack')}
+                  </Button>
+                )}
               </div>
             </div>
           </div>
         </Modal>
       )}
 
-      {/* Modal: Invite Member */}
-      <Modal
-        isOpen={isInviteModalOpen}
-        onClose={() => {
-          setIsInviteModalOpen(false);
-          setGeneratedInviteLink('');
-        }}
-        title="Пригласить сотрудника"
-        subtitle="Сотрудник получит доступ к учебным трекам организации"
-      >
-        {generatedInviteLink ? (
+      <ConfirmDialog
+        isOpen={!!pendingStatus}
+        title={t(`employees.status.confirmTitle.${pendingStatus?.status ?? 'suspended'}`)}
+        message={pendingStatus ? t(`employees.status.confirmMessage.${pendingStatus.status}`, { name: displayName(pendingStatus.member) }) : ''}
+        tone={pendingStatus?.status === 'active' ? 'primary' : 'danger'}
+        isLoading={isMutating}
+        onConfirm={handleStatusChange}
+        onCancel={() => setPendingStatus(null)}
+      />
+
+      {/* Invite */}
+      <Modal isOpen={isInviteOpen} onClose={resetInvite} title={t('employees.invite.title')} subtitle={t('employees.invite.subtitle')} preventClose={isMutating}>
+        {inviteResult ? (
           <div className="space-y-4 py-2">
-            <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
-              Одноразовая ссылка успешно создана. Скопируйте и передайте её сотруднику:
+            <div role="status" className="p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
+              {inviteResult.type === 'email' ? t('employees.invite.emailSimulated', { email: inviteResult.email }) : t('employees.invite.linkCreated')}
             </div>
             <div className="flex items-center space-x-2">
-              <input
-                readOnly
-                value={generatedInviteLink}
-                className="w-full text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg p-2"
-              />
+              <input readOnly aria-label={t('employees.invite.link')} value={inviteResult.link} className="w-full text-xs font-mono bg-slate-50 border border-slate-300 rounded-lg p-2" onFocus={(e) => e.target.select()} />
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  navigator.clipboard.writeText(generatedInviteLink);
+                aria-label={isCopied ? t('common.actions.copied') : t('common.actions.copy')}
+                onClick={async () => {
+                  await navigator.clipboard?.writeText(inviteResult.link).catch(() => undefined);
                   setIsCopied(true);
                   setTimeout(() => setIsCopied(false), 2000);
                 }}
               >
-                {isCopied ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                {isCopied ? <Check className="w-4 h-4 text-green-600" aria-hidden="true" /> : <Copy className="w-4 h-4" aria-hidden="true" />}
+              </Button>
+            </div>
+            <p className="text-[11px] text-slate-500">{t('employees.invite.linkExpiry')}</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={() => setInviteResult(null)}>
+                {t('employees.invite.another')}
+              </Button>
+              <Button variant="primary" onClick={resetInvite}>
+                {t('common.actions.close')}
               </Button>
             </div>
           </div>
         ) : (
           <form onSubmit={handleSendInvite} className="space-y-4 py-2">
-            <Input
-              label="Email сотрудника"
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="employee@company.com"
-              required
-            />
-
-            <div className="grid grid-cols-2 gap-3">
+            {inviteError && (
+              <div role="alert" className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                {inviteError}
+              </div>
+            )}
+            <Input label={t('employees.invite.email')} type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="employee@company.com" required data-autofocus />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Роль в системе</label>
-                <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2"
-                >
-                  <option value="employee">Employee (Сотрудник)</option>
-                  <option value="manager">Manager (Руководитель команды)</option>
-                  <option value="trainer">Trainer (Тренер)</option>
-                  <option value="hr_manager">HR Manager</option>
-                  <option value="org_admin">Organization Admin</option>
+                <label htmlFor="invite-role" className="block text-xs font-medium text-slate-700 mb-1">
+                  {t('employees.invite.role')}
+                </label>
+                <select id="invite-role" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)} className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2">
+                  {assignableRoles.map((r) => (
+                    <option key={r} value={r}>
+                      {t(`roles.${r}`)}
+                    </option>
+                  ))}
                 </select>
               </div>
-
               <div>
-                <label className="block text-xs font-medium text-slate-700 mb-1">Подразделение</label>
-                <select
-                  value={inviteDept}
-                  onChange={(e) => setInviteDept(e.target.value)}
-                  className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2"
-                >
-                  <option value="">Не выбрано</option>
+                <label htmlFor="invite-dept" className="block text-xs font-medium text-slate-700 mb-1">
+                  {t('employees.invite.department')}
+                </label>
+                <select id="invite-dept" value={inviteDept} onChange={(e) => setInviteDept(e.target.value)} className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2">
+                  <option value="">{t('employees.invite.noDepartment')}</option>
                   {departments.map((d) => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
+                    <option key={d.id} value={d.id}>
+                      {lt(d.name_i18n ?? d.name)}
+                    </option>
                   ))}
                 </select>
               </div>
             </div>
-
-            <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Способ отправки</label>
-              <div className="flex items-center space-x-4 text-xs">
+            <fieldset>
+              <legend className="block text-xs font-medium text-slate-700 mb-1">{t('employees.invite.method')}</legend>
+              <div className="flex flex-wrap items-center gap-4 text-xs">
                 <label className="flex items-center space-x-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="inviteType"
-                    checked={inviteType === 'email'}
-                    onChange={() => setInviteType('email')}
-                  />
-                  <span>Отправить на email</span>
+                  <input type="radio" name="inviteType" value="email" checked={inviteType === 'email'} onChange={() => setInviteType('email')} />
+                  <span>{t('employees.invite.byEmail')}</span>
                 </label>
                 <label className="flex items-center space-x-1.5 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="inviteType"
-                    checked={inviteType === 'link'}
-                    onChange={() => setInviteType('link')}
-                  />
-                  <span>Одноразовая ссылка</span>
+                  <input type="radio" name="inviteType" value="link" checked={inviteType === 'link'} onChange={() => setInviteType('link')} />
+                  <span>{t('employees.invite.byLink')}</span>
                 </label>
               </div>
-            </div>
-
-            <div className="pt-2 flex justify-end space-x-2">
-              <Button variant="secondary" onClick={() => setIsInviteModalOpen(false)}>Отмена</Button>
-              <Button type="submit" variant="primary">
-                {inviteType === 'link' ? 'Сгенерировать ссылку' : 'Отправить приглашение'}
+            </fieldset>
+            <div className="pt-2 flex justify-end gap-2">
+              <Button variant="secondary" type="button" onClick={resetInvite}>
+                {t('common.actions.cancel')}
+              </Button>
+              <Button type="submit" variant="primary" isLoading={isMutating}>
+                {inviteType === 'link' ? t('employees.invite.generateLink') : t('employees.invite.send')}
               </Button>
             </div>
           </form>
         )}
       </Modal>
 
-      {/* Modal: Bulk CSV Import with Line-by-Line Report */}
+      {/* CSV import */}
       <Modal
-        isOpen={isImportModalOpen}
+        isOpen={isImportOpen}
         onClose={() => {
-          setIsImportModalOpen(false);
+          setIsImportOpen(false);
           setImportReport(null);
           setImportFile(null);
         }}
-        title="Массовый импорт сотрудников (CSV/XLSX)"
-        subtitle="Идемпотентная загрузка списка сотрудников с построчным отчетом об ошибках"
+        title={t('employees.import.title')}
+        subtitle={t('employees.import.subtitle')}
         maxWidth="4xl"
+        preventClose={isImporting}
       >
         <div className="space-y-4 py-2">
-          {/* File Picker & Template */}
-          <div className="flex items-center justify-between p-4 border border-dashed border-slate-300 rounded-xl bg-slate-50">
-            <div className="flex items-center space-x-3">
-              <FileSpreadsheet className="w-8 h-8 text-indigo-600" />
-              <div>
-                <p className="text-xs font-medium text-slate-900">
-                  {importFile ? importFile.name : 'Выберите файл формата CSV для импорта'}
-                </p>
-                <p className="text-[11px] text-slate-500">
-                  Поддерживаются заголовки: first_name, last_name, email, role, job_title, department_code
-                </p>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border border-dashed border-slate-300 rounded-xl bg-slate-50">
+            <div className="flex items-center space-x-3 min-w-0">
+              <FileSpreadsheet className="w-8 h-8 text-indigo-600 shrink-0" aria-hidden="true" />
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-900 truncate">{importFile ? importFile.name : t('employees.import.chooseFile')}</p>
+                <p className="text-[11px] text-slate-500">{t('employees.import.headers', { headers: CSV_TEMPLATE_HEADER })}</p>
               </div>
             </div>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                <Download className="w-3.5 h-3.5 mr-1" />
-                Скачать шаблон
+                <Download className="w-3.5 h-3.5 mr-1" aria-hidden="true" />
+                {t('employees.import.template')}
               </Button>
               <label className="cursor-pointer">
-                <span className="inline-flex items-center justify-center font-medium rounded-lg px-3 py-1.5 text-xs bg-indigo-600 text-white hover:bg-indigo-700">
-                  Обзор файла
+                <span className="inline-flex items-center justify-center font-medium rounded-lg px-3 py-1.5 text-xs bg-indigo-600 text-white hover:bg-indigo-700 focus-within:ring-2 focus-within:ring-indigo-500">
+                  {t('employees.import.browse')}
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="sr-only"
+                    onChange={(e) => {
+                      if (e.target.files?.[0]) {
+                        setImportFile(e.target.files[0]);
+                        setImportReport(null);
+                      }
+                      e.target.value = '';
+                    }}
+                  />
                 </span>
-                <input
-                  type="file"
-                  accept=".csv,.xlsx"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      setImportFile(e.target.files[0]);
-                      setImportReport(null);
-                    }
-                  }}
-                />
               </label>
             </div>
           </div>
 
-          {/* Import Action */}
           {importFile && !importReport && (
             <div className="flex justify-end">
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleImportSubmit}
-                isLoading={isImporting}
-              >
-                Начать импорт
+              <Button variant="primary" size="sm" onClick={handleImportSubmit} isLoading={isImporting}>
+                {t('employees.import.start')}
               </Button>
             </div>
           )}
 
-          {/* Import Line-by-Line Report */}
           {importReport && (
             <div className="space-y-3">
-              <div className="grid grid-cols-4 gap-3 text-center">
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                  <span className="text-xs text-slate-500">Всего строк</span>
-                  <p className="text-lg font-bold text-slate-900">{importReport.total_rows}</p>
-                </div>
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <span className="text-xs text-green-700">Создано</span>
-                  <p className="text-lg font-bold text-green-700">{importReport.created_count}</p>
-                </div>
-                <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                  <span className="text-xs text-indigo-700">Обновлено</span>
-                  <p className="text-lg font-bold text-indigo-700">{importReport.updated_count}</p>
-                </div>
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-                  <span className="text-xs text-red-700">Ошибок</span>
-                  <p className="text-lg font-bold text-red-700">{importReport.failed_count}</p>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                {[
+                  ['total', importReport.total_rows, 'bg-slate-50 border-slate-200 text-slate-900'],
+                  ['created', importReport.created_count, 'bg-green-50 border-green-200 text-green-700'],
+                  ['updated', importReport.updated_count, 'bg-indigo-50 border-indigo-200 text-indigo-700'],
+                  ['failed', importReport.failed_count, 'bg-red-50 border-red-200 text-red-700'],
+                ].map(([key, value, cls]) => (
+                  <div key={key as string} className={`p-3 border rounded-lg ${cls}`}>
+                    <span className="text-xs">{t(`employees.import.summary.${key}`)}</span>
+                    <p className="text-lg font-bold">{formatNumber(value as number)}</p>
+                  </div>
+                ))}
               </div>
-
-              <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-lg">
+              {importReport.truncated && <p className="text-xs text-amber-700">{t('employees.import.truncated')}</p>}
+              {importReport.created_count > 0 && <p className="text-xs text-slate-500">{t('employees.import.invitedNote')}</p>}
+              <div className="max-h-60 overflow-auto border border-slate-200 rounded-lg">
                 <table className="min-w-full text-xs divide-y divide-slate-200">
                   <thead className="bg-slate-50 sticky top-0">
                     <tr>
-                      <th className="px-3 py-2 text-left text-slate-500">Строка</th>
-                      <th className="px-3 py-2 text-left text-slate-500">Email</th>
-                      <th className="px-3 py-2 text-left text-slate-500">Статус</th>
-                      <th className="px-3 py-2 text-left text-slate-500">Результат / Ошибка</th>
+                      <th scope="col" className="px-3 py-2 text-left text-slate-500">{t('employees.import.columns.row')}</th>
+                      <th scope="col" className="px-3 py-2 text-left text-slate-500">Email</th>
+                      <th scope="col" className="px-3 py-2 text-left text-slate-500">{t('employees.import.columns.status')}</th>
+                      <th scope="col" className="px-3 py-2 text-left text-slate-500">{t('employees.import.columns.result')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
-                    {importReport.row_results.map((r, i) => (
-                      <tr key={i} className={r.status === 'failed' ? 'bg-red-50/50' : ''}>
+                    {importReport.row_results.map((r) => (
+                      <tr key={r.row_number} className={r.status === 'failed' ? 'bg-red-50/50' : ''}>
                         <td className="px-3 py-1.5 font-mono">{r.row_number}</td>
-                        <td className="px-3 py-1.5">{r.email || '—'}</td>
+                        <td className="px-3 py-1.5 break-all">{r.email || '—'}</td>
                         <td className="px-3 py-1.5">
-                          <Badge variant={r.status === 'failed' ? 'danger' : 'success'}>
-                            {r.status}
-                          </Badge>
+                          <Badge variant={r.status === 'failed' ? 'danger' : r.status === 'updated' ? 'info' : 'success'}>{t(`employees.import.rowStatus.${r.status}`)}</Badge>
                         </td>
-                        <td className="px-3 py-1.5 text-slate-600">{r.error || 'Успешно обработано'}</td>
+                        <td className="px-3 py-1.5 text-slate-600">{r.error_code ? t(`employees.import.rowErrors.${r.error_code}`) : t('employees.import.rowOk')}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -939,61 +779,60 @@ export const EmployeesPage: React.FC = () => {
         </div>
       </Modal>
 
-      {/* Modal: Bulk Actions */}
+      {/* Bulk actions */}
       <Modal
-        isOpen={isBulkActionModalOpen}
-        onClose={() => setIsBulkActionModalOpen(false)}
-        title="Массовое действие"
-        subtitle={`Применяется к ${selectedIDs.length} выбранным сотрудникам`}
+        isOpen={!!bulkAction}
+        onClose={() => {
+          setBulkAction(null);
+          setBulkTarget('');
+        }}
+        title={bulkAction ? t(`employees.bulk.titles.${bulkAction}`) : ''}
+        subtitle={t('employees.bulk.appliesTo', { count: selectedIDs.length })}
+        preventClose={isMutating}
       >
         <div className="space-y-4 py-2">
-          {bulkActionType === 'assign_department' && (
+          {bulkAction === 'assign_department' && (
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Выберите подразделение</label>
-              <select
-                value={bulkTargetValue}
-                onChange={(e) => setBulkTargetValue(e.target.value)}
-                className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2"
-              >
-                <option value="">Выберите подразделение</option>
+              <label htmlFor="bulk-dept" className="block text-xs font-medium text-slate-700 mb-1">
+                {t('employees.bulk.chooseDepartment')}
+              </label>
+              <select id="bulk-dept" value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2">
+                <option value="">{t('employees.bulk.chooseDepartment')}</option>
                 {departments.map((d) => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
+                  <option key={d.id} value={d.id}>
+                    {lt(d.name_i18n ?? d.name)}
+                  </option>
                 ))}
               </select>
             </div>
           )}
-
-          {bulkActionType === 'change_role' && (
+          {bulkAction === 'change_role' && (
             <div>
-              <label className="block text-xs font-medium text-slate-700 mb-1">Новая роль</label>
-              <select
-                value={bulkTargetValue}
-                onChange={(e) => setBulkTargetValue(e.target.value)}
-                className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2"
-              >
-                <option value="">Выберите роль</option>
-                <option value="employee">Employee</option>
-                <option value="manager">Manager</option>
-                <option value="trainer">Trainer</option>
-                <option value="hr_manager">HR Manager</option>
+              <label htmlFor="bulk-role" className="block text-xs font-medium text-slate-700 mb-1">
+                {t('employees.bulk.newRole')}
+              </label>
+              <select id="bulk-role" value={bulkTarget} onChange={(e) => setBulkTarget(e.target.value)} className="w-full text-sm rounded-lg border border-slate-300 bg-white p-2">
+                <option value="">{t('employees.bulk.chooseRole')}</option>
+                {assignableRoles.map((r) => (
+                  <option key={r} value={r}>
+                    {t(`roles.${r}`)}
+                  </option>
+                ))}
               </select>
             </div>
           )}
-
-          {bulkActionType === 'deactivate' && (
+          {bulkAction === 'deactivate' && (
             <div className="flex items-start space-x-2 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800">
-              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>Выбранные сотрудники будут переведены в статус inactive. История пройденных курсов и тестов будет сохранена.</span>
+              <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" aria-hidden="true" />
+              <span>{t('employees.bulk.deactivateWarning')}</span>
             </div>
           )}
-
-          <div className="pt-2 flex justify-end space-x-2">
-            <Button variant="secondary" onClick={() => setIsBulkActionModalOpen(false)}>Отмена</Button>
-            <Button
-              variant={bulkActionType === 'deactivate' ? 'danger' : 'primary'}
-              onClick={handleBulkAction}
-            >
-              Подтвердить
+          <div className="pt-2 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setBulkAction(null)} disabled={isMutating}>
+              {t('common.actions.cancel')}
+            </Button>
+            <Button variant={bulkAction === 'deactivate' ? 'danger' : 'primary'} onClick={handleBulk} isLoading={isMutating} disabled={bulkAction !== 'deactivate' && !bulkTarget}>
+              {t('common.actions.confirm')}
             </Button>
           </div>
         </div>

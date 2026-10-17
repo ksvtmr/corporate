@@ -1,0 +1,68 @@
+{
+  "title": "Assessment integrity monitoring",
+  "subtitle": "Neutral logging of tab switches, text pasting and unusually fast answers, with a decision log",
+  "searchPlaceholder": "Search by employee, test or details…",
+  "anySeverity": "Any severity",
+  "kpi": {
+    "total": "Events recorded",
+    "new": "Awaiting review",
+    "escalated": "Escalated",
+    "dismissed": "Dismissed"
+  },
+  "severity": {
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
+  },
+  "status": {
+    "new": "New",
+    "escalated": "Escalated",
+    "dismissed": "Dismissed"
+  },
+  "sort": {
+    "time": "Most recent first",
+    "severity": "By severity",
+    "name": "By employee (A–Z)"
+  },
+  "columns": {
+    "employee": "Employee",
+    "test": "Test",
+    "type": "Event type",
+    "details": "Details",
+    "severity": "Severity",
+    "status": "Status",
+    "action": "Action"
+  },
+  "types": {
+    "tab_switch": "Tab switch",
+    "focus_loss": "Window focus lost",
+    "copy_paste": "Pasted text",
+    "rapid_answering": "Unusually fast answer",
+    "ai_text_detected": "Signs of generated text"
+  },
+  "details": {
+    "tab_switch": "Switched browser tab for {{seconds}} s during question {{question}}.",
+    "focus_loss": "Window lost focus for {{seconds}} s.",
+    "copy_paste": "Pasted {{chars}} characters into the answer to question {{question}}.",
+    "rapid_answering": "Question {{question}} answered in {{seconds}} s.",
+    "ai_text_detected": "The answer to question {{question}} shows signs of generated text."
+  },
+  "actions": {
+    "review": "Review",
+    "dismiss": "Dismiss flag",
+    "escalate": "Escalate to curator"
+  },
+  "modal": {
+    "title": "Integrity event review",
+    "test": "Test: {{test}}",
+    "type": "Type: {{type}}",
+    "auditEntry": "Decision log entry:",
+    "note": "Decision rationale (for the log)",
+    "notePlaceholder": "Comment on the decision…",
+    "neutralHint": "An event alone does not prove misconduct — assess it in context."
+  },
+  "toast": {
+    "dismissed": "Flag dismissed; decision logged",
+    "escalated": "Event escalated to the curator; decision logged"
+  }
+}

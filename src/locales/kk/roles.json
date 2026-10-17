@@ -1,0 +1,24 @@
+{
+  "platform_super_admin": "Платформаның супер-әкімшісі",
+  "org_admin": "Ұйым әкімшісі",
+  "hr_manager": "HR / оқыту менеджері",
+  "manager": "Бөлімше басшысы",
+  "trainer": "Корпоративтік тренер / әдіскер",
+  "employee": "Қызметкер",
+  "unknown": "Анықталмаған",
+  "short": {
+    "platform_super_admin": "Супер-әкімші",
+    "org_admin": "Әкімші",
+    "hr_manager": "HR",
+    "manager": "Басшы",
+    "trainer": "Тренер",
+    "employee": "Қызметкер"
+  },
+  "status": {
+    "invited": "Шақырылған",
+    "active": "Белсенді",
+    "suspended": "Тоқтатылған",
+    "inactive": "Белсенді емес",
+    "archived": "Мұрағатта"
+  }
+}

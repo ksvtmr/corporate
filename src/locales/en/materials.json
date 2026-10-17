@@ -1,0 +1,99 @@
+{
+  "title": "Knowledge base & learning materials",
+  "subtitle": "Upload policies, extract topics with AI, manage versions and publishing",
+  "searchPlaceholder": "Search by title or category…",
+  "allCategories": "All categories",
+  "empty": "The knowledge base has no materials yet",
+  "processingSummary": "AI is extracting the structure and drafting a summary…",
+  "required": "Required",
+  "optional": "Optional",
+  "priorityLabel": "Priority: {{priority}}",
+  "priority": {
+    "high": "high",
+    "medium": "medium",
+    "low": "low"
+  },
+  "kpi": {
+    "total": "Total files",
+    "published": "Published",
+    "review": "In review",
+    "processing": "AI processing",
+    "failed": "Errors"
+  },
+  "categories": {
+    "development": "Software development",
+    "compliance": "Compliance & security",
+    "sales": "Sales",
+    "training": "Training",
+    "people": "People & HR"
+  },
+  "status": {
+    "uploaded": "Uploaded",
+    "queued": "Queued",
+    "processing": "AI analysis…",
+    "ready_for_review": "Ready for review",
+    "published": "Published",
+    "failed": "Processing failed"
+  },
+  "confidentiality": {
+    "internal": "Internal",
+    "confidential": "Confidential",
+    "strictly_confidential": "Strictly confidential"
+  },
+  "access": {
+    "public_within_organization": "Whole organization",
+    "restricted_by_department": "Department only",
+    "restricted_by_role": "By role",
+    "admins_only": "Admins only"
+  },
+  "fields": {
+    "category": "Category",
+    "confidentiality": "Confidentiality",
+    "version": "Version",
+    "uploadedBy": "Author",
+    "access": "Access:"
+  },
+  "sort": {
+    "newest": "Newest first",
+    "title": "By title (A–Z)",
+    "size": "By file size"
+  },
+  "actions": {
+    "upload": "Upload material",
+    "downloadSummary": "Download summary",
+    "publish": "Approve and publish"
+  },
+  "detail": {
+    "title": "Material details",
+    "meta": "Uploaded by {{author}} • {{date}} • {{size}}",
+    "summary": "AI summary",
+    "topics": "Extracted topics ({{count}})",
+    "noTopics": "No topics extracted",
+    "removeTopic": "Remove topic “{{name}}”"
+  },
+  "removeTopic": {
+    "title": "Remove this topic?",
+    "message": "The topic will no longer be used to generate questions and flashcards from this material."
+  },
+  "upload": {
+    "title": "Upload a learning material",
+    "name": "Material title",
+    "namePlaceholder": "e.g. Engineering onboarding standard",
+    "processing": "AI is extracting structure and topics…",
+    "fileRequired": "Choose a file to start the analysis.",
+    "start": "Start AI analysis"
+  },
+  "generated": {
+    "summary": "AI recognized the document structure and extracted key topics. Review the summary before publishing.",
+    "topics": {
+      "intro": "Introduction",
+      "process": "Core workflow",
+      "checklists": "Checklists"
+    }
+  },
+  "toast": {
+    "uploaded": "Material processed and awaiting review",
+    "published": "“{{title}}” published",
+    "downloaded": "{{file}} downloaded"
+  }
+}

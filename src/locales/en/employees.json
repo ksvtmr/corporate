@@ -1,0 +1,164 @@
+{
+  "title": "Employees",
+  "titleManager": "My team",
+  "subtitle": {
+    "one": "Staff, roles, invitations and bulk operations — {{count}} employee",
+    "other": "Staff, roles, invitations and bulk operations — {{count}} employees"
+  },
+  "subtitleManager": {
+    "one": "{{department}} — {{count}} employee",
+    "other": "{{department}} — {{count}} employees"
+  },
+  "pendingName": "Awaiting sign-up",
+  "empty": "No employees match the selected filters",
+  "actions": {
+    "export": "Export CSV",
+    "import": "Import",
+    "invite": "Invite"
+  },
+  "export": {
+    "success": "{{file}} has been generated and downloaded"
+  },
+  "filters": {
+    "searchPlaceholder": "Search by name, email or job title…",
+    "allCurrent": "All except archived"
+  },
+  "sort": {
+    "nameAsc": "Name (A–Z)",
+    "nameDesc": "Name (Z–A)",
+    "coursesDesc": "Courses in progress: high to low",
+    "coursesAsc": "Courses in progress: low to high",
+    "status": "By status",
+    "jobTitle": "By job title"
+  },
+  "table": {
+    "sortBy": "Sort by {{column}}",
+    "selectPage": "Select all on this page",
+    "select": "Select {{name}}",
+    "employee": "Employee",
+    "jobTitle": "Job title",
+    "department": "Department",
+    "role": "Role",
+    "status": "Status",
+    "activeCourses": "Courses in progress"
+  },
+  "bulk": {
+    "selected": {
+      "one": "{{count}} employee selected",
+      "other": "{{count}} employees selected"
+    },
+    "assignDepartment": "Assign department",
+    "changeRole": "Change role",
+    "deactivate": "Deactivate",
+    "success": {
+      "one": "Applied to {{count}} employee",
+      "other": "Applied to {{count}} employees"
+    },
+    "titles": {
+      "assign_department": "Assign department",
+      "change_role": "Change role",
+      "deactivate": "Deactivate employees"
+    },
+    "appliesTo": {
+      "one": "Applies to {{count}} selected employee",
+      "other": "Applies to {{count}} selected employees"
+    },
+    "chooseDepartment": "Choose a department",
+    "newRole": "New role",
+    "chooseRole": "Choose a role",
+    "deactivateWarning": "Selected employees will lose access to the platform (status “Inactive”). Course and test history is kept and access can be restored. If the selection includes you or the last administrator, the whole operation is cancelled."
+  },
+  "detail": {
+    "title": "Employee profile: {{name}}",
+    "noJobTitle": "No job title",
+    "noDepartment": "No department",
+    "role": "System role",
+    "activeCourses": "Courses in progress",
+    "startDate": "Start date",
+    "manager": "Manager",
+    "suspend": "Suspend access",
+    "reactivate": "Restore access",
+    "resendInvite": "Resend invitation",
+    "archive": "Archive",
+    "assignTrack": "Assign track"
+  },
+  "status": {
+    "changed": {
+      "suspended": "Access suspended for {{name}}",
+      "active": "Access restored for {{name}}",
+      "inactive": "{{name}} has been deactivated",
+      "archived": "{{name}} has been archived",
+      "invited": "Status updated"
+    },
+    "confirmTitle": {
+      "suspended": "Suspend access?",
+      "active": "Restore access?",
+      "archived": "Archive this employee?",
+      "inactive": "Deactivate?",
+      "invited": "Change status?"
+    },
+    "confirmMessage": {
+      "suspended": "{{name}} will be signed out immediately and lose access. Learning data is kept.",
+      "active": "{{name}} will be able to sign in again with the same role.",
+      "archived": "{{name}} will be removed from lists and their access and invitations revoked. Learning history is kept for reporting. Only support can undo this.",
+      "inactive": "{{name}} will lose access to the platform.",
+      "invited": "The status will be changed."
+    }
+  },
+  "invite": {
+    "title": "Invite an employee",
+    "subtitle": "The employee gets access to the organization's learning tracks after accepting the invitation",
+    "email": "Employee email",
+    "role": "System role",
+    "department": "Department",
+    "noDepartment": "Not selected",
+    "method": "Invitation method",
+    "byEmail": "Send by email",
+    "byLink": "One-time link",
+    "generateLink": "Generate link",
+    "send": "Send invitation",
+    "emailSimulated": "Invitation for {{email}} created. Emails are not sent in demo mode — share this link with the employee:",
+    "linkCreated": "One-time link created. Copy it and share it with the employee:",
+    "link": "Invitation link",
+    "linkExpiry": "The link is valid for 7 days and can be used once.",
+    "another": "Invite another",
+    "resent": "A new link for {{email}} was created and copied to the clipboard"
+  },
+  "import": {
+    "title": "Bulk employee import (CSV)",
+    "subtitle": "Re-uploading is safe: existing employees are updated, not duplicated",
+    "templateExample": "John,Smith,john@company.com,employee,Developer,ENG",
+    "chooseFile": "Choose a CSV file to import",
+    "headers": "Columns: {{headers}}",
+    "template": "Download template",
+    "browse": "Choose file",
+    "start": "Start import",
+    "summary": {
+      "total": "Total rows",
+      "created": "Created",
+      "updated": "Updated",
+      "failed": "Errors"
+    },
+    "truncated": "Only the first 500 rows were processed.",
+    "invitedNote": "New employees have the “Invited” status: they get access after accepting the invitation.",
+    "columns": {
+      "row": "Row",
+      "status": "Status",
+      "result": "Result"
+    },
+    "rowStatus": {
+      "created": "Created",
+      "updated": "Updated",
+      "failed": "Failed"
+    },
+    "rowOk": "Processed successfully",
+    "rowErrors": {
+      "INVALID_EMAIL": "Invalid email",
+      "DUPLICATE_IN_FILE": "Duplicate email in file",
+      "DOMAIN_NOT_ALLOWED": "Domain not allowed by organization settings",
+      "INVALID_ROLE": "Invalid role or insufficient rights to assign it",
+      "UNKNOWN_DEPARTMENT": "No department with this code",
+      "SEAT_LIMIT_REACHED": "Seat limit exceeded"
+    }
+  }
+}

@@ -1,272 +1,285 @@
-import React, { useState } from 'react';
-import {
-  FileSpreadsheet,
-  Download,
-  Clock,
-  CheckCircle2,
-  FileText,
-  FileDown,
-  Filter,
-  History,
-  Sparkles,
-  ArrowRight,
-  Search,
-  Check
-} from 'lucide-react';
-import { Button, Card, Badge, Input, Modal, Table } from '@iclever/frontend-kit';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Download, FileDown, Search, Printer } from 'lucide-react';
+import { api, Badge, Button, DemoDataBadge, EmptyState, LocalizedText, saveBlob, Table, toCsv, useApiErrorMessage, useAuth, useI18n, useToast } from '@iclever/frontend-kit';
+import { DemoReportJob, REPORT_TYPES, ReportFormat, ReportType } from '../demo/fixtures';
+import { effectiveStatus, fullName, useAssignmentsState, useDepartments, useDirectory, useReportJobsState, useTestsState, useTracksState } from '../demo/useDemoData';
 
-interface ExportJob {
-  id: string;
-  report_type: string;
-  format: 'pdf' | 'xlsx' | 'csv';
-  status: 'processing' | 'ready' | 'failed';
-  created_at: string;
-  file_size_mb?: number;
-  download_url?: string;
+interface IntegrityEvent {
+  student_name: string;
+  test_title: LocalizedText;
+  event_type: string;
+  severity: string;
+  timestamp: string;
+  status: string;
 }
 
-const initialJobs: ExportJob[] = [
-  {
-    id: 'exp-001',
-    report_type: 'Итоги онбординга и аттестации Q3 2026',
-    format: 'xlsx',
-    status: 'ready',
-    created_at: '2026-09-02 12:30:15',
-    file_size_mb: 2.4,
-    download_url: '#download',
-  },
-  {
-    id: 'exp-002',
-    report_type: 'Журнал событий честности (Integrity Flags)',
-    format: 'pdf',
-    status: 'ready',
-    created_at: '2026-09-01 18:45:00',
-    file_size_mb: 1.1,
-    download_url: '#download',
-  },
-  {
-    id: 'exp-003',
-    report_type: 'Выгрузка реестра сотрудников компании',
-    format: 'csv',
-    status: 'ready',
-    created_at: '2026-08-28 09:10:22',
-    file_size_mb: 0.4,
-    download_url: '#download',
-  },
-];
+type StoredJob = DemoReportJob & { rows?: string[][] };
+
+function escapeHtml(s: string) {
+  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
 
 export const ReportsPage: React.FC = () => {
-  const [jobs, setJobs] = useState<ExportJob[]>(initialJobs);
-  const [selectedFormat, setSelectedFormat] = useState<'pdf' | 'xlsx' | 'csv'>('xlsx');
-  const [selectedType, setSelectedType] = useState('Сводный отчет успеваемости по отделам');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const { t, lt, locale, formatDate, formatNumber, formatPercent } = useI18n();
+  const { user, activeMember } = useAuth();
+  const toast = useToast();
+  const errorMessage = useApiErrorMessage();
+  const [jobs, setJobs] = useReportJobsState();
+  const [assignments] = useAssignmentsState();
+  const [tracks] = useTracksState();
+  const [tests] = useTestsState();
+  const departments = useDepartments();
+  const { members } = useDirectory();
+  const [selectedType, setSelectedType] = useState<ReportType>('department_progress');
+  const [format, setFormat] = useState<ReportFormat>('csv');
+  const [progress, setProgress] = useState<number | null>(null);
   const [historySearch, setHistorySearch] = useState('');
-  const [downloadToast, setDownloadToast] = useState<string | null>(null);
 
-  const reportTypes = [
-    { title: 'Сводный отчет успеваемости по отделам', desc: 'Детальная разбивка по подразделениям, проценту завершения и средним баллам' },
-    { title: 'Реестр просроченных дедлайнов и эскалаций', desc: 'Список сотрудников с сорванными сроками сдачи программ и тестов' },
-    { title: 'Аналитический срез по компетенциям (Matrix)', desc: 'Оценка hard skills и сопоставление с грейдами инженеров' },
-    { title: 'Журнал анти-чит и событий честности', desc: 'Логи потери фокуса окна, копирования и подозрительных сессий' },
-    { title: 'Реестр сотрудников и статус аккаунтов', desc: 'Экспорт полного кадрового состава со статусами инвайтов' },
-  ];
-
-  const handleGenerateReport = () => {
-    setIsGenerating(true);
-    setProgress(10);
-
-    const interval = setInterval(() => {
-      setProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval);
-          setIsGenerating(false);
-
-          const newJob: ExportJob = {
-            id: 'exp-' + Math.random().toString(36).substring(2, 7),
-            report_type: selectedType,
-            format: selectedFormat,
-            status: 'ready',
-            created_at: new Date().toISOString().replace('T', ' ').substring(0, 19),
-            file_size_mb: 1.8,
-            download_url: '#download',
-          };
-          setJobs([newJob, ...jobs]);
-          setDownloadToast(`Отчет «${selectedType}» сформирован! Нажмите «Скачать» в таблице ниже.`);
-          setTimeout(() => setDownloadToast(null), 4000);
-          return 0;
-        }
-        return prev + 25;
-      });
-    }, 350);
+  const programName = (type: 'track' | 'test', id: string) => lt((type === 'track' ? tracks.find((x) => x.id === id) : tests.find((x) => x.id === id))?.title) || id;
+  const deptName = (id?: string) => {
+    const d = departments.find((x) => x.id === id);
+    return d ? lt(d.name_i18n ?? d.name) : '—';
   };
 
-  const handleDownloadFile = (job: ExportJob) => {
-    let mime = 'text/csv;charset=utf-8;';
-    let ext = job.format;
-    let content = '';
-
-    if (job.format === 'csv') {
-      mime = 'text/csv;charset=utf-8;';
-      content = '\uFEFF' + `Отчет: ${job.report_type}\nДата: ${job.created_at}\nСтатус: ${job.status}\n\nФИО,Подразделение,Трек,Прогресс,Статус\nМарат Жумабаев,Инженерия и разработка,Онбординг Go,75%,В процессе\nАлександр Петров,Инженерия и разработка,Онбординг Go,40%,В процессе\nНурлан Сейтов,Инженерия и разработка,Архитектурный стандарт,95%,Сдано\nДина Сабитова,Инженерия и разработка,Информационная безопасность,100%,Сдано\nАлексей Смирнов,Инженерия и разработка,Входное тестирование,10%,Просрочено\n`;
-    } else if (job.format === 'xlsx') {
-      mime = 'application/vnd.ms-excel;charset=utf-8;';
-      content = `Отчет: ${job.report_type}\tДата: ${job.created_at}\nФИО\tПодразделение\tПрогресс\nМарат Жумабаев\tИнженерия\t75%\nВиктор Ким\tИнженерия\t100%\n`;
-    } else {
-      mime = 'text/plain;charset=utf-8;';
-      content = `iClever Corporate Platform - Официальный отчет\n=========================================\nТип отчета: ${job.report_type}\nДата генерации: ${job.created_at}\nФормат: ${job.format.toUpperCase()}\nОрганизация: Fintech Innovations Corp\n\nСводка показателей:\nВсего сотрудников: 142\nCompletion Rate: 88.4%\nСредний балл тестирования: 89.4/100\n`;
+  /** Builds report rows from the organization's current data, with headers in the UI language. */
+  const buildRows = async (type: ReportType): Promise<string[][] | null> => {
+    const h = (k: string) => t(`reports.columns.${k}`);
+    if (type === 'department_progress') {
+      return [
+        [h('department'), h('headcount'), h('assignments'), h('completed'), h('overdue'), h('avgProgress')],
+        ...departments.map((d) => {
+          const rows = assignments.filter((a) => a.assignee_type === 'member' && members.find((m) => m.id === a.assignee_id)?.department_id === d.id && a.status !== 'cancelled');
+          const avg = rows.length ? rows.reduce((s, a) => s + a.progress_percent, 0) / rows.length : 0;
+          return [lt(d.name_i18n ?? d.name), String(members.filter((m) => m.department_id === d.id).length), String(rows.length), String(rows.filter((a) => a.status === 'completed').length), String(rows.filter((a) => effectiveStatus(a) === 'overdue').length), formatPercent(avg)];
+        }),
+      ];
     }
-
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `report_${job.id}.${ext === 'pdf' ? 'txt' : ext}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-
-    setDownloadToast(`Файл отчета report_${job.id}.${job.format} загружен на ваше устройство!`);
-    setTimeout(() => setDownloadToast(null), 3000);
+    if (type === 'overdue_registry') {
+      return [
+        [h('employee'), h('department'), h('program'), h('dueDate'), h('progress')],
+        ...assignments
+          .filter((a) => a.assignee_type === 'member' && effectiveStatus(a) === 'overdue')
+          .map((a) => {
+            const m = members.find((x) => x.id === a.assignee_id);
+            return [fullName(m) || a.assignee_id, deptName(m?.department_id), programName(a.target_type, a.target_id), formatDate(a.due_date, 'dateShort'), formatPercent(a.progress_percent)];
+          }),
+      ];
+    }
+    if (type === 'competency_matrix') {
+      return [
+        [h('employee'), h('jobTitle'), h('department'), h('completed'), h('inProgress'), h('avgProgress')],
+        ...members
+          .filter((m) => m.status === 'active')
+          .map((m) => {
+            const rows = assignments.filter((a) => a.assignee_type === 'member' && a.assignee_id === m.id && a.status !== 'cancelled');
+            const avg = rows.length ? rows.reduce((s, a) => s + a.progress_percent, 0) / rows.length : 0;
+            return [fullName(m), m.job_title || '—', deptName(m.department_id), String(rows.filter((a) => a.status === 'completed').length), String(rows.filter((a) => a.status !== 'completed').length), formatPercent(avg)];
+          }),
+      ];
+    }
+    if (type === 'integrity_log') {
+      const res = await api.get<IntegrityEvent[]>('/assessment/integrity-events', { noCache: true });
+      if (!res.success || !res.data) {
+        toast.error(errorMessage(res.error));
+        return null;
+      }
+      return [
+        [h('employee'), h('test'), h('event'), h('severity'), h('status'), h('date')],
+        ...res.data.map((e) => [e.student_name, lt(e.test_title), t(`integrity.types.${e.event_type}`), t(`integrity.severity.${e.severity}`), t(`integrity.status.${e.status}`), formatDate(e.timestamp, 'dateTime')]),
+      ];
+    }
+    // employee_registry: rows from the members API (server-side scoped and sanitized export also available).
+    return [
+      [h('employee'), 'Email', h('role'), h('status'), h('jobTitle'), h('department')],
+      ...members.filter((m) => m.status !== 'archived').map((m) => [fullName(m), m.email, t(`roles.${m.role}`), t(`roles.status.${m.status}`), m.job_title || '—', deptName(m.department_id)]),
+    ];
   };
 
-  const filteredJobs = jobs.filter((j) =>
-    j.report_type.toLowerCase().includes(historySearch.toLowerCase()) ||
-    j.format.toLowerCase().includes(historySearch.toLowerCase())
-  );
+  // Simulated asynchronous job; the timer is cleaned up on unmount.
+  useEffect(() => {
+    if (progress === null) return;
+    if (progress < 100) {
+      const timer = setTimeout(() => setProgress((p) => (p === null ? null : p + 25)), 300);
+      return () => clearTimeout(timer);
+    }
+    let cancelled = false;
+    (async () => {
+      const rows = await buildRows(selectedType);
+      if (cancelled) return;
+      setProgress(null);
+      if (!rows) return;
+      const csv = toCsv(rows);
+      const job: StoredJob = {
+        id: `exp-${Date.now().toString(36)}`,
+        report_type: selectedType,
+        format,
+        status: 'ready',
+        created_at: new Date().toISOString(),
+        file_size_kb: Math.max(1, Math.round(new Blob([csv]).size / 1024)),
+        created_by: fullName(user ?? undefined),
+        rows,
+      };
+      setJobs((prev) => [job, ...prev].slice(0, 50));
+      toast.success(t('reports.toast.ready', { report: t(`reports.types.${selectedType}.title`) }));
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress]);
+
+  const download = async (job: StoredJob) => {
+    const title = t(`reports.types.${job.report_type}.title`);
+    const rows = job.rows ?? (await buildRows(job.report_type));
+    if (!rows) return;
+    if (job.format === 'csv') {
+      const name = `${job.report_type}_${job.created_at.slice(0, 10)}.csv`;
+      saveBlob(new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8' }), name);
+      toast.success(t('reports.toast.downloaded', { file: name }));
+      return;
+    }
+    // PDF: print-ready document; the browser's "Save as PDF" produces the file.
+    const win = window.open('', '_blank', 'noopener=no');
+    if (!win) return toast.error(t('reports.toast.popupBlocked'));
+    const [head, ...body] = rows;
+    win.document.write(
+      `<!doctype html><html lang="${locale}"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:Inter,Arial,sans-serif;padding:24px;color:#0f172a}table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5e1;padding:6px;text-align:left}th{background:#f1f5f9}</style></head><body>` +
+        `<h1 style="font-size:18px">${escapeHtml(title)}</h1><p style="font-size:12px;color:#64748b">${escapeHtml(activeMember?.org_name ?? '')} • ${escapeHtml(formatDate(job.created_at, 'dateTime'))}</p>` +
+        `<table><thead><tr>${head.map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${body.map((r) => `<tr>${r.map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></body></html>`,
+    );
+    win.document.close();
+    win.focus();
+    win.print();
+  };
+
+  const filteredJobs = useMemo(() => {
+    const q = historySearch.trim().toLowerCase();
+    return (jobs as StoredJob[]).filter((j) => !q || `${t(`reports.types.${j.report_type}.title`)} ${j.format}`.toLowerCase().includes(q));
+  }, [jobs, historySearch, t]);
+
+  const isGenerating = progress !== null;
 
   return (
     <div className="space-y-6">
-      {downloadToast && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-sm animate-fadeIn">
-          <span className="flex items-center">
-            <Check className="w-4 h-4 mr-2 text-emerald-600" />
-            {downloadToast}
-          </span>
-          <button onClick={() => setDownloadToast(null)} className="text-emerald-700 hover:text-emerald-900">✕</button>
-        </div>
-      )}
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900">Экспорт корпоративных отчетов</h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Формирование сводных выгрузок в PDF, XLSX и CSV с безопасными ссылками скачивания
-          </p>
-        </div>
+      <div>
+        <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+          {t('reports.title')} <DemoDataBadge />
+        </h1>
+        <p className="text-xs text-slate-500 mt-1">{t('reports.subtitle')}</p>
       </div>
 
-      {/* Generator Card */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 mb-2">1. Выберите тип отчета</h3>
+      <section className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
+        <fieldset>
+          <legend className="text-sm font-bold text-slate-900 mb-2">{t('reports.step1')}</legend>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {reportTypes.map((t) => (
-              <div
-                key={t.title}
-                onClick={() => setSelectedType(t.title)}
-                className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all ${
-                  selectedType === t.title
-                    ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 font-medium ring-2 ring-indigo-100'
-                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
+            {REPORT_TYPES.map((type) => (
+              <label
+                key={type}
+                className={`p-3.5 rounded-xl border text-xs cursor-pointer transition-all focus-within:ring-2 focus-within:ring-indigo-500 ${
+                  selectedType === type ? 'border-indigo-600 bg-indigo-50/70 text-indigo-950 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-slate-300 bg-slate-50/50'
                 }`}
               >
-                <div className="font-semibold text-slate-900">{t.title}</div>
-                <div className="text-[11px] text-slate-500 mt-1">{t.desc}</div>
-              </div>
+                <input type="radio" name="report-type" value={type} checked={selectedType === type} onChange={() => setSelectedType(type)} className="sr-only" />
+                <div className="font-semibold text-slate-900">{t(`reports.types.${type}.title`)}</div>
+                <div className="text-[11px] text-slate-500 mt-1">{t(`reports.types.${type}.desc`)}</div>
+              </label>
             ))}
           </div>
-        </div>
+        </fieldset>
 
-        {/* Format Selector */}
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 mb-2">2. Формат документа</h3>
-          <div className="flex space-x-3 text-xs">
-            {(['xlsx', 'pdf', 'csv'] as const).map((fmt) => (
+        <fieldset>
+          <legend className="text-sm font-bold text-slate-900 mb-2">{t('reports.step2')}</legend>
+          <div className="flex flex-wrap gap-3 text-xs">
+            {(['csv', 'pdf'] as const).map((fmt) => (
               <button
                 key={fmt}
-                onClick={() => setSelectedFormat(fmt)}
-                className={`px-4 py-2 rounded-xl border font-bold uppercase transition-all flex items-center space-x-2 ${
-                  selectedFormat === fmt
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
-                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
-                }`}
+                type="button"
+                aria-pressed={format === fmt}
+                onClick={() => setFormat(fmt)}
+                className={`px-4 py-2 rounded-xl border font-bold uppercase transition-all flex items-center gap-2 ${format === fmt ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
               >
-                <FileDown className="w-4 h-4" />
+                <FileDown className="w-4 h-4" aria-hidden="true" />
                 <span>{fmt}</span>
               </button>
             ))}
+            <button type="button" disabled title={t('reports.xlsxUnavailable')} className="px-4 py-2 rounded-xl border font-bold uppercase flex items-center gap-2 bg-slate-50 text-slate-400 border-slate-200 cursor-not-allowed">
+              <FileDown className="w-4 h-4" aria-hidden="true" />
+              <span>xlsx</span>
+            </button>
           </div>
-        </div>
+          <p className="text-[11px] text-slate-500 mt-2">{format === 'pdf' ? t('reports.pdfHint') : t('reports.csvHint')}</p>
+          <p className="text-[11px] text-slate-400">{t('reports.xlsxUnavailable')}</p>
+        </fieldset>
 
-        {/* Async Job Progress Bar */}
         {isGenerating && (
-          <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 space-y-2 text-xs">
+          <div className="p-4 bg-indigo-50 rounded-xl border border-indigo-100 space-y-2 text-xs" role="status">
             <div className="flex justify-between font-semibold text-indigo-900">
-              <span>Генерация отчета и расчет агрегаций...</span>
-              <span>{progress}%</span>
+              <span>{t('reports.generating')}</span>
+              <span>{Math.min(progress!, 100)}%</span>
             </div>
             <div className="w-full bg-indigo-200 h-2 rounded-full overflow-hidden">
-              <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${progress}%` }} />
+              <div className="bg-indigo-600 h-full transition-all duration-300" style={{ width: `${Math.min(progress!, 100)}%` }} />
             </div>
           </div>
         )}
 
         <div className="pt-2 flex justify-end">
-          <Button
-            variant="primary"
-            disabled={isGenerating}
-            onClick={handleGenerateReport}
-          >
-            <Download className="w-4 h-4 mr-1.5" />
-            {isGenerating ? 'Формирование отчета...' : 'Сформировать отчет'}
+          <Button variant="primary" disabled={isGenerating} isLoading={isGenerating} onClick={() => setProgress(0)}>
+            <Download className="w-4 h-4 mr-1.5" aria-hidden="true" />
+            {t('reports.generate')}
           </Button>
         </div>
-      </div>
+      </section>
 
-      {/* Export History Table */}
-      <div className="space-y-3">
+      <section className="space-y-3" aria-labelledby="report-history">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-          <h3 className="text-sm font-bold text-slate-900">История сформированных отчетов</h3>
+          <h2 id="report-history" className="text-sm font-bold text-slate-900">
+            {t('reports.history')}
+          </h2>
           <div className="relative w-full sm:w-64">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" />
+            <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-slate-400" aria-hidden="true" />
             <input
-              type="text"
-              placeholder="Поиск по названию или формату..."
+              type="search"
+              aria-label={t('common.actions.search')}
+              placeholder={t('reports.searchPlaceholder')}
               value={historySearch}
               onChange={(e) => setHistorySearch(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:ring-2 focus:ring-indigo-500 focus:outline-none"
             />
           </div>
         </div>
-
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <Table headers={['Отчет', 'Формат', 'Размер', 'Дата формирования', 'Статус', 'Скачать']}>
-            {filteredJobs.map((job) => (
-              <tr key={job.id} className="hover:bg-slate-50 text-xs text-slate-700 transition-colors">
-                <td className="p-3 font-semibold text-slate-900">{job.report_type}</td>
-                <td className="p-3 uppercase font-bold text-slate-600">{job.format}</td>
-                <td className="p-3 text-slate-500">{job.file_size_mb} MB</td>
-                <td className="p-3 text-slate-500">{job.created_at}</td>
-                <td className="p-3">
-                  <Badge variant="success">Готов</Badge>
-                </td>
-                <td className="p-3 text-right">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleDownloadFile(job)}
-                  >
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    Скачать
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </Table>
-        </div>
-      </div>
+        {filteredJobs.length === 0 ? (
+          <EmptyState title={jobs.length === 0 ? t('reports.emptyHistory') : t('common.states.emptyFiltered')} />
+        ) : (
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+            <Table headers={[t('reports.columns.report'), t('reports.columns.format'), t('reports.columns.size'), t('reports.columns.created'), t('reports.columns.status'), t('reports.columns.download')]}>
+              {filteredJobs.map((job) => (
+                <tr key={job.id} className="hover:bg-slate-50 text-xs text-slate-700 transition-colors">
+                  <td className="p-3 font-semibold text-slate-900">
+                    {t(`reports.types.${job.report_type}.title`)}
+                    <span className="block text-[10px] font-normal text-slate-400">{job.created_by}</span>
+                  </td>
+                  <td className="p-3 uppercase font-bold text-slate-600">{job.format}</td>
+                  <td className="p-3 text-slate-500">{t('reports.sizeKb', { size: formatNumber(job.file_size_kb) })}</td>
+                  <td className="p-3 text-slate-500">
+                    <time dateTime={job.created_at}>{formatDate(job.created_at, 'dateTime')}</time>
+                  </td>
+                  <td className="p-3">
+                    <Badge variant={job.status === 'ready' ? 'success' : 'danger'}>{t(`reports.status.${job.status}`)}</Badge>
+                  </td>
+                  <td className="p-3 text-right">
+                    <Button variant="secondary" size="sm" onClick={() => void download(job)} disabled={job.status !== 'ready'}>
+                      {job.format === 'pdf' ? <Printer className="w-3.5 h-3.5 mr-1" aria-hidden="true" /> : <Download className="w-3.5 h-3.5 mr-1" aria-hidden="true" />}
+                      {job.format === 'pdf' ? t('reports.openPdf') : t('common.actions.download')}
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </Table>
+          </div>
+        )}
+        <p className="text-[11px] text-slate-400">{t('reports.historyNote')}</p>
+      </section>
     </div>
   );
 };

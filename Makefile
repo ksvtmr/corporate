@@ -1,4 +1,4 @@
-.PHONY: dev build preview lint test clean push
+.PHONY: dev build preview lint test e2e check clean push
 
 dev:
 	npm run dev
@@ -10,10 +10,16 @@ preview:
 	npm run preview
 
 lint:
-	npx tsc --noEmit
+	npm run typecheck && npm run i18n:check
 
 test:
 	npm test
+
+e2e:
+	npm run test:e2e
+
+check:
+	npm run check
 
 push:
 	git push origin HEAD

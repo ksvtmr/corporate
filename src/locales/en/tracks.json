@@ -1,0 +1,102 @@
+{
+  "title": "Learning tracks & onboarding programs",
+  "subtitle": "Learning sequences, block transition rules and AI-generated drafts",
+  "searchPlaceholder": "Search by track or department…",
+  "allDepartments": "All departments",
+  "empty": "No learning tracks yet",
+  "status": {
+    "draft": "Draft",
+    "in_review": "In review",
+    "published": "Published",
+    "archived": "Archived"
+  },
+  "types": {
+    "onboarding": "Onboarding",
+    "compliance": "Compliance",
+    "role_training": "Role training",
+    "safety": "Safety",
+    "custom": "Custom"
+  },
+  "blockTypes": {
+    "material": "Material",
+    "video": "Video",
+    "test": "Test",
+    "open_question": "Open question",
+    "flashcards": "Flashcards",
+    "acknowledgment": "Acknowledgment"
+  },
+  "rules": {
+    "sequential": "Sequential",
+    "free": "Free access",
+    "must_complete_previous": "After the previous block",
+    "min_score_70": "Minimum score 70%"
+  },
+  "sort": {
+    "enrolled": "By learners",
+    "duration": "By duration",
+    "title": "By title (A–Z)"
+  },
+  "card": {
+    "blocks": "Program blocks:",
+    "learners": "Learners (completed):"
+  },
+  "actions": {
+    "generate": "Generate with AI",
+    "create": "Create track",
+    "assign": "Assign to employees",
+    "publish": "Publish track",
+    "archive": "Archive"
+  },
+  "detail": {
+    "title": "Track builder: {{title}}",
+    "passing": "Passing score: {{score}}",
+    "aiDraft": "Draft created by AI — review the content before publishing.",
+    "sequence": "Block sequence ({{count}})",
+    "publishedHint": "✓ Published and available for assignment",
+    "draftHint": "Drafts are hidden from employees until published"
+  },
+  "archive": {
+    "title": "Archive this track?",
+    "message": "“{{title}}” will no longer be available for new assignments. Existing assignments and history are kept."
+  },
+  "starterBlocks": {
+    "material": "1. Introduction and policies",
+    "test": "2. Interim knowledge check"
+  },
+  "form": {
+    "title": "Create a learning track",
+    "subtitle": "New programs are created as drafts",
+    "name": "Track title",
+    "namePlaceholder": "e.g. Go architecture standards",
+    "department": "Target department",
+    "type": "Program type",
+    "description": "Program description",
+    "descriptionPlaceholder": "Short description of the course goals…",
+    "hours": "Duration (hours)",
+    "passing": "Passing score (%)",
+    "submit": "Create draft",
+    "errors": {
+      "title": "Enter a track title.",
+      "hours": "Duration must be a whole number from 1 to 200 hours.",
+      "score": "The passing score must be a whole number from 50 to 100."
+    }
+  },
+  "ai": {
+    "title": "Generate a learning program with AI",
+    "subtitle": "AI drafts the program in the current interface language; it is published only after your review",
+    "role": "Target role",
+    "rolePlaceholder": "e.g. Middle Backend Go Developer",
+    "weeks": "Duration (weeks)",
+    "goals": "Learning goals and focus",
+    "goalsPlaceholder": "e.g. design system, TypeScript, SPA architecture",
+    "goalsHint": "List topics separated by commas — each becomes its own block.",
+    "generating": "AI is analyzing policies and assembling program blocks…",
+    "submit": "Generate draft"
+  },
+  "toast": {
+    "generated": "Track draft generated — review it before publishing",
+    "created": "Track draft created",
+    "published": "Track “{{title}}” published",
+    "archived": "Track archived"
+  }
+}

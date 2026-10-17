@@ -1,0 +1,85 @@
+{
+  "kicker": "Learning player • {{track}}",
+  "views": {
+    "track": "Learning program",
+    "test": "Assessment",
+    "results": "Assessment results"
+  },
+  "backToTrack": "Back to program",
+  "blocks": "Program blocks",
+  "progress": "Completed: {{percent}}",
+  "blockDone": "Block completed",
+  "blockOf": "Block {{current}} of {{total}}",
+  "takeaway": "Key takeaway:",
+  "markDoneNext": "Done, next",
+  "finishCourse": "Finish course",
+  "courseCompleted": "Course completed",
+  "video": {
+    "play": "Play video",
+    "pause": "Pause",
+    "playing": "▶ Playing video lecture",
+    "duration": "Video ({{duration}})"
+  },
+  "testBlock": {
+    "title": "Ready for the assessment?",
+    "meta": "{{questions}}, {{minutes}} min, passing score {{passing}}",
+    "passed": "Test passed",
+    "required": "This block is completed once you pass the test.",
+    "open": "Go to the test"
+  },
+  "ack": {
+    "label": "I have read and agree to the policy"
+  },
+  "test": {
+    "timeLeft": "Time left: {{time}}",
+    "rules": {
+      "time": "Time limit: {{minutes}} min; the test is submitted automatically when time runs out",
+      "passing": "Passing score: {{passing}}",
+      "autosave": "Answers are saved automatically — you can safely reload the page",
+      "openAnswer": "Open answers are pre-graded by AI and confirmed by a trainer"
+    },
+    "integrityNotice": "Tab switches and text pasting are recorded during the test. HR sees these events and reviews them neutrally.",
+    "lastResult": "Last result: {{score}}.",
+    "viewResult": "View",
+    "start": "Start test",
+    "retake": "Retake",
+    "questionOf": "Question {{current}} of {{total}}",
+    "navigator": "Question navigator",
+    "goTo": "Question {{number}}: {{state}}",
+    "answered": "answered",
+    "notAnswered": "not answered",
+    "openPlaceholder": "Type your answer…",
+    "openHint": "Your answer will be pre-graded by AI against the criteria and passed to a trainer.",
+    "prev": "Previous",
+    "next": "Next",
+    "finish": "Finish test",
+    "autoSubmitted": "Time is up — your answers were submitted automatically"
+  },
+  "submit": {
+    "title": "Submit test",
+    "unanswered": {
+      "one": "{{count}} question is unanswered. Submit the test anyway?",
+      "other": "{{count}} questions are unanswered. Submit the test anyway?"
+    },
+    "allAnswered": "You have answered every question. Submit the test?",
+    "keepWorking": "Back to questions",
+    "send": "Submit"
+  },
+  "results": {
+    "none": "No results yet.",
+    "passed": "Test passed",
+    "failed": "Test not passed",
+    "threshold": "Passing score: {{passing}}",
+    "duration": "Time taken: {{minutes}} min",
+    "pendingReview": "Preliminary result: a trainer is still reviewing your open answer, so the final score may change.",
+    "byTopic": "Breakdown by topic",
+    "topicScore": "{{earned}} / {{max}} ({{percent}})",
+    "backToProgram": "Back to program",
+    "toDashboard": "Go to dashboard"
+  },
+  "complete": {
+    "title": "Congratulations on completing the course!",
+    "message": "You have completed all required blocks of “{{track}}”.",
+    "recorded": "Your completion has been recorded in the assessment log."
+  }
+}

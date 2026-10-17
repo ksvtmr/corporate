@@ -1,0 +1,113 @@
+{
+  "unknownProgram": "Program removed",
+  "unknownMember": "Employee unavailable",
+  "deadline": "Due: {{date}}",
+  "trackStatus": {
+    "completed": "Completed",
+    "in_progress": "In progress",
+    "not_started": "Not started"
+  },
+  "employee": {
+    "kicker": "Employee workspace",
+    "kickerWithDept": "Employee workspace • {{department}}",
+    "greeting": "Hello, {{name}}! Good to see you 👋",
+    "trackDone": "You have completed “{{track}}”. Great work!",
+    "trackInProgress": "“{{track}}”: {{done}} of {{total}} blocks completed.",
+    "openPlayer": "Course player",
+    "takeTest": "Take the test",
+    "progress": "Current progress",
+    "blocksDone": "Blocks completed: {{done}} of {{total}}",
+    "activeAssignments": "Active assignments",
+    "nextDeadline": "Next deadline: {{date}}",
+    "noDeadlines": "No deadlines",
+    "lastTest": "Latest test",
+    "preliminary": "Preliminary: answer under review",
+    "passed": "Passed",
+    "notPassed": "Not passed",
+    "noAttempts": "No attempts yet",
+    "completedPrograms": "Programs completed",
+    "myPrograms": "My learning programs",
+    "curator": "Curator: {{name}}",
+    "continue": "Continue learning",
+    "toTest": "Go to the test →",
+    "recommendations": "Recommendations",
+    "recFlashcardsTitle": "Review your flashcards",
+    "recFlashcardsText": "Spaced repetition helps you retain the track's key terms.",
+    "recFlashcardsAction": "Open flashcards",
+    "recAiTitle": "Ask the AI assistant",
+    "recAiText": "Answers about company policies with links to sources.",
+    "recAiAction": "Open AI chat"
+  },
+  "manager": {
+    "kicker": "Manager workspace • {{department}}",
+    "title": "Team dashboard",
+    "subtitle": {
+      "one": "Learning progress and deadlines for your team: {{count}} employee",
+      "other": "Learning progress and deadlines for your team: {{count}} employees"
+    },
+    "assign": "Assign a track",
+    "remind": "Send deadline reminders",
+    "noReminders": "No open assignments to remind about",
+    "remindersSent": {
+      "one": "Reminder recorded for {{count}} assignment (emails are not sent in demo mode)",
+      "other": "Reminders recorded for {{count}} assignments (emails are not sent in demo mode)"
+    },
+    "teamSize": "Team members",
+    "completion": "Completion rate",
+    "overdue": "Overdue deadlines",
+    "avgProgress": "Average progress",
+    "tableTitle": "Team progress",
+    "tableSubtitle": "Select an employee to see details",
+    "searchPlaceholder": "Search by name or job title…",
+    "noAssignment": "No assignments",
+    "sort": {
+      "progressAsc": "Lagging first",
+      "progressDesc": "Leading first",
+      "nameAsc": "Name: A–Z",
+      "nameDesc": "Name: Z–A"
+    },
+    "profileTitle": "Employee profile: {{name}}",
+    "manageAssignments": "Manage assignments →"
+  },
+  "trainer": {
+    "title": "Trainer dashboard",
+    "subtitle": "Your organization's content, learning tracks and question bank",
+    "materials": "Knowledge base materials",
+    "toReview": "Awaiting review: {{count}}",
+    "tracks": "Learning tracks",
+    "drafts": "Drafts: {{count}}",
+    "questions": "Questions in the bank",
+    "published": "Published tracks",
+    "goMaterials": "Upload a material",
+    "goMaterialsText": "Add a policy — AI extracts topics for training.",
+    "goTracks": "Build a track",
+    "goTracksText": "Assemble a program manually or generate a draft with AI.",
+    "goAssessments": "Question bank",
+    "goAssessmentsText": "Create questions and assemble an assessment."
+  },
+  "admin": {
+    "title": "Corporate dashboard",
+    "subtitle": "Key learning and staff indicators for {{org}}",
+    "exportReport": "Export report",
+    "aiTrack": "Generate a track with AI",
+    "activeEmployees": "Active employees",
+    "invitedHint": "Pending invitations: {{count}}",
+    "seats": "Seats in use",
+    "pendingReviews": "Answers awaiting review",
+    "needsAttention": "Needs attention",
+    "allClear": "Queue is empty",
+    "departments": "Departments",
+    "liveData": "Live data",
+    "criticalTitle": "Upcoming and overdue assignments",
+    "criticalSubtitle": "Need attention from managers",
+    "noCritical": "No urgent assignments",
+    "actionsTitle": "Admin to-do",
+    "actionsSubtitle": "Calculated from your organization's data",
+    "actionItems": {
+      "pendingReviews": "Answers awaiting review",
+      "integrity": "New integrity events",
+      "invited": "Pending invitations",
+      "suspended": "Suspended employees"
+    }
+  }
+}

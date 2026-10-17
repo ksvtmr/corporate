@@ -1,0 +1,58 @@
+{
+  "title": "AI-assisted review of open answers",
+  "subtitle": "Employee answers pre-graded by AI against criteria; a reviewer makes the final decision",
+  "searchPlaceholder": "Search by employee or question…",
+  "emptyPending": "No answers awaiting review",
+  "score": "{{score}} / {{max}} pts",
+  "confidence": "AI confidence: {{value}}",
+  "answer": "Employee answer:",
+  "justification": "AI grading rationale:",
+  "criteria": "Grading criteria",
+  "matched": "Met",
+  "missed": "Not met",
+  "reviewerComment": "Reviewer comment: {{comment}}",
+  "reviewedBy": "{{name}}, {{date}}",
+  "status": {
+    "pending": "Awaiting decision",
+    "approved": "Approved",
+    "overridden": "Overridden"
+  },
+  "sort": {
+    "newest": "Newest first",
+    "confidence": "By AI confidence",
+    "scoreAsc": "Lowest score first",
+    "scoreDesc": "Highest score first"
+  },
+  "actions": {
+    "approveAll": "Approve all ({{count}})",
+    "cluster": "Group by error type",
+    "plainList": "Plain list",
+    "changeScore": "Change score",
+    "approve": "Approve AI grade"
+  },
+  "approveAll": {
+    "title": "Approve all AI grades?",
+    "message": {
+      "one": "{{count}} answer will receive the grade suggested by AI as final. This is recorded in the log.",
+      "other": "{{count}} answers will receive the grades suggested by AI as final. This is recorded in the log."
+    },
+    "confirm": "Approve all"
+  },
+  "override": {
+    "title": "Manual grade override",
+    "score": "Reviewer score (0–{{max}})",
+    "comment": "Rationale (required)",
+    "commentPlaceholder": "Why are you changing the AI grade…",
+    "save": "Save decision",
+    "scoreError": "Enter a whole number from 0 to {{max}}.",
+    "commentError": "Add a rationale (at least 3 characters)."
+  },
+  "toast": {
+    "approved": "Grade confirmed for {{name}}",
+    "approvedAll": {
+      "one": "{{count}} answer approved",
+      "other": "{{count}} answers approved"
+    },
+    "overridden": "Score changed to {{score}} / {{max}}"
+  }
+}
