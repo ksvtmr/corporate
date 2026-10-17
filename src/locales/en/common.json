@@ -106,9 +106,5 @@
   "no": "No",
   "on": "On",
   "off": "Off",
-  "notSet": "Not set",
-  "previewBuild": {
-    "label": "Preview build",
-    "tooltip": "Preview of changes from a pull request. Data is stored separately from the production site."
-  }
+  "notSet": "Not set"
 }

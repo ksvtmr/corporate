@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { storageKey as namespaced } from '../storage';
 
 /**
  * State persisted in localStorage under a key scoped to the organization, so
@@ -8,7 +7,7 @@ import { storageKey as namespaced } from '../storage';
  * which keeps them correct after switching the UI language.
  */
 export function usePersistentState<T>(key: string, scope: string | undefined, initial: () => T): [T, (updater: T | ((prev: T) => T)) => void] {
-  const storageKey = namespaced(`iclever_demo:${scope || 'anon'}:${key}`);
+  const storageKey = `iclever_demo:${scope || 'anon'}:${key}`;
   const read = useCallback((): T => {
     try {
       const raw = localStorage.getItem(storageKey);

@@ -2,7 +2,6 @@ import React, { Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, Capability, I18nProvider, RequireCapability, ToastProvider, useAuth, useI18n } from '@iclever/frontend-kit';
 import { AppLayout } from './components/layout/AppLayout';
-import { EnvironmentBadge } from './components/layout/EnvironmentBadge';
 
 const lazyPage = <K extends string>(loader: () => Promise<Record<K, React.ComponentType>>, name: K) =>
   React.lazy(() => loader().then((m) => ({ default: m[name] })));
@@ -67,7 +66,6 @@ export const App: React.FC = () => (
   <I18nProvider>
     <ToastProvider>
       <AuthProvider>
-        <EnvironmentBadge />
         <BrowserRouter basename={import.meta.env.BASE_URL} future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <Suspense fallback={<PageLoader />}>
             <Routes>

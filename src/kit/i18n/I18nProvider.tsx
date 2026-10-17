@@ -10,7 +10,6 @@ import {
 import { Catalogues, lookup, Messages, TranslateVars, translate } from './core';
 import { MaybeLocalized, ResolvedText, resolveLocalized } from './localized';
 import { loadCatalogue } from './loader';
-import { CATALOGUE_HMR_EVENT, CatalogueHmrDetail } from './hmr';
 
 export type DateStyle = 'date' | 'dateShort' | 'dateTime' | 'time' | 'monthDay';
 
@@ -112,22 +111,6 @@ export const I18nProvider: React.FC<I18nProviderProps> = ({ children, initialLoc
   useEffect(() => {
     document.documentElement.lang = locale;
   }, [locale]);
-
-  // Development: apply edited translation files without reloading the page.
-  useEffect(() => {
-    if (!import.meta.hot) return;
-    const onUpdate = (event: Event) => {
-      const { locale: updated, messages } = (event as CustomEvent<CatalogueHmrDetail>).detail;
-      setStore((prev) => {
-        if (!prev[updated]) return prev;
-        const next = { ...prev, [updated]: messages };
-        storeRef.current = next;
-        return next;
-      });
-    };
-    window.addEventListener(CATALOGUE_HMR_EVENT, onUpdate);
-    return () => window.removeEventListener(CATALOGUE_HMR_EVENT, onUpdate);
-  }, []);
 
   const setLocale = useCallback(async (next: Locale, options?: { persist?: boolean }) => {
     const safe = normalizeLocale(next);

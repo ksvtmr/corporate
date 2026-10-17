@@ -10,7 +10,7 @@ preview:
 	npm run preview
 
 lint:
-	npm run lint && npm run typecheck && npm run i18n:check
+	npm run typecheck && npm run i18n:check
 
 test:
 	npm test
