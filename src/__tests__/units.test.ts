@@ -1,11 +1,10 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { can, canAssignRole, rolesWith } from '@/kit/auth/permissions';
 import { sanitizeCsvCell, toCsv } from '@/kit/export/csv';
 import { isEmail, isStrongPassword } from '@/kit/forms/validation';
 import { effectiveStatus } from '@/demo/useDemoData';
 import { daysFromNow } from '@/demo/fixtures';
-import { scheduleCard } from '@/demo/scheduling';
-import { safeRedirect } from '@/kit/auth/redirect';
+import { scheduleCard } from '@/pages/FlashcardsPage';
 
 describe('RBAC matrix (API_CONTRACTS §16.2)', () => {
   it('matches the documented permissions', () => {
@@ -71,31 +70,11 @@ describe('flashcard scheduling', () => {
 });
 
 describe('post-login redirect', () => {
-  it('accepts only internal application paths', () => {
+  it('accepts only internal application paths', async () => {
+    const { safeRedirect } = await import('@/pages/LoginPage');
     expect(safeRedirect('/corporate/employees?status=invited')).toBe('/corporate/employees?status=invited');
     for (const bad of ['//evil.com', '/corporate/\\evil.com', '/corporate//evil.com', 'https://evil.com', '/login', '/corporate/x\\\\y', 42, undefined]) {
       expect(safeRedirect(bad)).toBe('/corporate/dashboard');
-    }
-  });
-});
-
-describe('deployment storage isolation', () => {
-  it('keeps historical keys in production and prefixes them in previews', async () => {
-    const prod = await import('@/kit/storage');
-    expect(prod.storageKey('iclever_mock_db')).toBe('iclever_mock_db');
-
-    vi.resetModules();
-    vi.stubEnv('VITE_STORAGE_NAMESPACE', 'pr-12');
-    try {
-      const preview = await import('@/kit/storage');
-      expect(preview.storageKey('iclever_mock_db')).toBe('pr-12:iclever_mock_db');
-      const { STORAGE_KEY } = await import('@/mocks/db');
-      const { TOKEN_STORAGE_KEY } = await import('@/kit/api/client');
-      expect(STORAGE_KEY).toBe('pr-12:iclever_mock_db');
-      expect(TOKEN_STORAGE_KEY).toBe('pr-12:iclever_token');
-    } finally {
-      vi.unstubAllEnvs();
-      vi.resetModules();
     }
   });
 });

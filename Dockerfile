@@ -7,11 +7,8 @@ WORKDIR /app
 # Build-time configuration (Vite inlines VITE_* vars into the bundle)
 ARG VITE_USE_MOCK=true
 ARG VITE_API_BASE_URL=/api
-ARG VITE_APP_VERSION=docker
 ENV VITE_USE_MOCK=$VITE_USE_MOCK \
     VITE_API_BASE_URL=$VITE_API_BASE_URL \
-    VITE_APP_VERSION=$VITE_APP_VERSION \
-    VITE_DEPLOY_ENV=production \
     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 RUN --mount=type=bind,source=package.json,target=package.json \

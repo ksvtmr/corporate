@@ -51,17 +51,3 @@ coverage/
 
 # Antigravity local brain (session logs, artifacts, transcripts)
 .agents/brain/
-
-# Test output
-test-results/
-playwright-report/
-e2e/screenshots/
-
-# Credentials (never commit)
-*.pem
-*.key
-*.p12
-.npmrc
-
-# Local GitHub Pages simulation (DEPLOYMENT.md §9)
-.pages-local/

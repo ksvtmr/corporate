@@ -585,7 +585,7 @@ export async function importMembers(req: MockRequest): Promise<MockResult> {
   }
   if (!csv.trim()) throw badRequest('File is empty', { field: 'file', rule: 'required' });
 
-  const lines = csv.replace(/^\uFEFF/, '').trim().split(/\r?\n/);
+  const lines = csv.replace(/^﻿/, '').trim().split(/\r?\n/);
   const header = parseCsvLine(lines[0]).map((h) => h.toLowerCase());
   if (!header.includes('email')) throw badRequest('Missing email column', { field: 'file', rule: 'header' });
   const rows = lines.slice(1, IMPORT_MAX_ROWS + 1);

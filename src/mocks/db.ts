@@ -17,9 +17,8 @@ import {
 } from './data/seed';
 import { initialIntegrityEvents, initialReviews, SeedIntegrityEvent, SeedReview } from './data/content';
 import type { Role } from '@/kit/auth/permissions';
-import { storageKey } from '@/kit/storage';
 
-export const STORAGE_KEY = storageKey('iclever_mock_db');
+export const STORAGE_KEY = 'iclever_mock_db';
 export const SCHEMA_VERSION = 2;
 
 export interface Invitation {
