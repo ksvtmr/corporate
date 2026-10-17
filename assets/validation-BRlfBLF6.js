@@ -1,0 +1,1 @@
+const s=/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,n=/^(?=.{3,253}$)([a-z0-9](-?[a-z0-9])*\.)+[a-z]{2,}$/;function a(t){return s.test(t.trim())}function o(t){return t.length>=8&&t.length<=128&&/[A-Za-zА-Яа-яЁёӘәҒғҚқҢңӨөҰұҮүҺһІі]/.test(t)&&/\d/.test(t)}export{n as D,s as E,a,o as i};
